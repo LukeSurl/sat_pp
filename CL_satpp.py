@@ -1,0 +1,1 @@
+/home/users/lsurl/localedit/CL_satpp.py
