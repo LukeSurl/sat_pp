@@ -15,23 +15,28 @@ import math
 import os
 from geopy.distance import great_circle
 
-def basic_menu(title,menu_options,quit_option="True"):
-    os.system('clear')
-    menu_letters = []
-    menu_strings = []
+def clearscreen():
+    """Clears the screen. Checks the OS to deliver the correct command"""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def basic_menu(title,menu_options,quit_option=True):
+    """Loads a basic menu to screen and returns the output"""
+    clearscreen() #clears the screen
+    menu_letters = [] #an initially empty list for the user choice options
     print title
     for i in range(0,len(menu_options)):
-        menu_letters.append( menu_options[i][0] )
+        #add option to menu_letters
+        menu_letters.append( menu_options[i][0].upper() )
         print "[" + menu_options[i][0] + "] " + menu_options[i][1]
-    if quit_option:
+    if quit_option: #add an option to leave the menu (go up a level)
         menu_letters.append( "Z" )
         print "[Z] Exit this menu"
     choice = ""
-    while choice not in menu_letters :
-        choice = raw_input("-->")
+    while choice not in menu_letters : #only allow choices in menu_letters
+        choice = raw_input("-->").upper()
     return(choice)
     
-
 
 def initial():
     choice = ""
