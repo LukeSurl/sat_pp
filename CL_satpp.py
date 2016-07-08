@@ -678,4 +678,7 @@ def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha
     plt.title(title)
     plt.show()
 
-    
+def save_pickle_indiv(name,ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time):
+        print("Pickling individual data")
+        pikname = name + "_1.p"
+        pickle.dump( (ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time), open(pikname,"wb") )

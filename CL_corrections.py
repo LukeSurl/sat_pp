@@ -287,3 +287,81 @@ def BASIC_AMF_and_correction(lat,time,sat_SC,sat_DSC,
             sat_DVC.append(abs(sat_DSC[i]/AMF[i]))
 
     return(sat_VC,sat_DVC)
+    
+def load_and_correct(startdate,enddate,
+                     filtered_folder="NOTAVALIDPATH",
+                     corrections_folder="NOTAVALIDPATH",
+                     corr_type="ask"):
+    """Loads filtered data, pacific correction, and AMF and applies these"""
+    
+    
+    #check if provided path for filtered data is an actual folder
+    #The default value of filtered_folder will return False
+    #This is far from foolproof, but it's a
+    #useful quick catch of invalid input
+    path_valid = path_valid os.path.isdir(filtered_folder)
+    
+    #if we haven't got a valid path, ask for one.
+    while path_valid == False:
+        print "Enter the folder in which filtered data has been saved.
+        print "Do not include year subdirectories, these will be navigated automatically."
+        filtered_folder = raw_input("-->")
+        #Check that is a valid path.
+        path_valid = path_valid os.path.isdir(path)
+        if path_valid == False:
+            print "%s is not a valid path" %filtered_folder
+    
+    del path_valid
+    
+    #load the data        
+    print "loading filtered data..."
+    (ULN,lat,lon,time,geos_VC,sat_SC,sat_DSC,AMF) =\
+        load_filtered_main(filtered_folder,startdate,enddate)
+
+    #check if provided path for filtered data is valid
+    #Same process & caveats as before...
+    
+    path_valid = path_valid os.path.isdir(corrections_folder)
+    #if we haven't got a valid path, ask for one.
+    while path_valid == False:
+        print "Enter the folder in which correctoins have been saved.
+        print "Do not include year subdirectories, these will be navigated automatically."
+        filtered_folder = raw_input("-->")
+        #Check that is a valid path.
+        path_valid = path_valid os.path.isdir(path)
+        if path_valid == False:
+            print "%s is not a valid path" %filtered_folder
+    
+    del path_valid
+    
+    #load the corrections    
+    print "loading corrections"
+    (corr_year,corr_mon,corr_lat,corrections,Vcorrections) = get_corrections(corrections_folder,startdate,enddate)
+    
+    #if we need to prompt the user for the type of correction used
+    while corr_type not in ["basic","advanced"]:
+        print "Pacfic corrections"
+        print "[1] Calculate VCs, apply same pacific correction to each observation at same latitude"
+        print "[2] Apply detector-specific corrections to SCs, then convert to VCs"
+        corr_option = raw_input("-->")
+        if corr_option == "1":
+            corr_type = "basic"
+        elif corr_option == "2":
+            corr_type = "advanced"
+        del corr_option
+    
+    print "Applying AMFs and corrections"
+    if corr_type="advanced":
+        (sat_VC,sat_DVC) = \
+            AMF_and_correction(ULN,lat,time,
+                               sat_SC,sat_DSC,AMF,
+                               corr_year,corr_mon,corr_lat,
+                               corrections)
+    elif corr_type="basic":
+        (sat_VC,sat_DVC) = \
+            BASIC_AMF_and_correction(lat,time,
+                                     sat_SC,sat_DSC,AMF,
+                                     corr_year,corr_mon,corr_lat,
+                                     Vcorrections)
+                                   
+    return(ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF)
