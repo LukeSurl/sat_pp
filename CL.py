@@ -76,6 +76,7 @@ def main():
                 ["1","Use binned data"],
                 ["2","Use individual observations data"],
                 ["G","Geographically select data to use"],
+                ["C","Generate new dataset from filtered data and pacific corrections"],
                 ["P","Change pickle"],
                 ["R","Reload pickle"],
                 ["E","Change current emissions files"],   
