@@ -48,9 +48,9 @@ def load_filtered_main(data_folder,startdate,enddate):
 
     #list of files will now be full paths to all files to be processed.
     #print these to screen
-    print "Will load data from the following files"
-    for filepath in list_of_files:
-        print filepath
+    print "Will load data from %i files" % len(list_of_files)
+    print "First: %s" %list_of_files[0]
+    print "Last : %s" %list_of_files[len(list_of_files)-1]
 
     #now build arrays for all of the data in range.    
     ULN     = [] #unique line number
