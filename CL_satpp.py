@@ -368,9 +368,9 @@ def global_options(north,south,east,west,xdim,ydim,startdate,enddate):
             new_s_month= change_var(startdate.month,"Start time month")
             new_s_day  = change_var(startdate.day,"Start time day")
             startdate  = dt(new_s_year,new_s_month,new_s_day,0,0,0)
-            new_e_year = change_var(  enddate.year,"Start time year")
-            new_e_month= change_var(  enddate.month,"Start time month")
-            new_e_day  = change_var(  enddate.day,"Start time day")
+            new_e_year = change_var(  enddate.year,"End time year")
+            new_e_month= change_var(  enddate.month,"End time month")
+            new_e_day  = change_var(  enddate.day,"End time day")
             enddate    = dt(new_e_year,new_e_month,new_e_day,0,0,0)
         elif choice == "Z" or choice == "z":
             leave = True

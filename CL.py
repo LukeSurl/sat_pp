@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from CL_satpp import *
+from CL_corrections import *
 import os
 from datetime import datetime as dt
 
@@ -11,23 +12,35 @@ def main():
     initial_choice = basic_menu(
                     "INITIAL MENU",
                     [
-                     ["1","Load default files and settings"],
+                     ["1","Load default data"],
                      ["2","Proceed without loading"]
                     ],
                     quit_option=False)
+    
+    #"Default settings"
+    filtered_startdate = dt(1970,1,1)
+    filtered_enddate   = dt(2099,12,31)
+    filtered_folder    = \
+        "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/filtered/"
+    corrections_folder= \
+        "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/corrections/"
+    corr_type="basic"    
+    south = 2.
+    north = 38.
+    west = 65.
+    east = 100.
+    compass = [north,south,east,west]
+    xdim = 0.3125
+    ydim = 0.25
+    startdate = dt(2014,03,01, 0, 0, 0)
+    enddate   = dt(2014,12,31,23,59,59)
+    type_geo_select = "latlon"
+    geo_selection = [north,south,east,west]        
+    current_pickle = "NONE SELECTED"
+    current_emfiles = ["NONE SELECTED","NONE SELECTED"]   
+    
     if initial_choice == "1":
-        print "Loading default options"
-        south = 2.
-        north = 38.
-        west = 65.
-        east = 100.
-        compass = [north,south,east,west]
-        xdim = 0.3125
-        ydim = 0.25
-        startdate = dt(2014,03,01, 0, 0, 0)
-        enddate   = dt(2014,12,31,23,59,59)
-        type_geo_select = "latlon"
-        geo_selection = [north,south,east,west]        
+        print "Loading default options"       
         current_pickle =   '/group_workspaces/jasmin/geoschem/'\
                            'local_users/lsurl/sat_pp/'\
                            '20140301-20141231'
@@ -48,20 +61,6 @@ def main():
             sat_uncer_binned,geos_stdev_binned,
             dev_mean_binned,NDVI_mean_binned,
             countries_binned,states_binned) = binn_data_all
-    elif initial_choice == "2":
-        south = 0.
-        north = 0.
-        west = 0.
-        east = 0.
-        compass = [north,south,east,west]
-        xdim = 0.
-        ydim = 0.
-        type_geo_select = "latlon"
-        geo_selection = [north,south,east,west]  
-        startdate = dt(2014,01,01, 0, 0, 0)
-        enddate   = dt(2014,01,01, 0, 0, 0)        
-        current_pickle = "NONE SELECTED"
-        current_emfiles = ["NONE SELECTED","NONE SELECTED"]
         
     
     #main loop
@@ -152,6 +151,60 @@ def main():
                 elif type_geo_select == "circle":
                     (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = geo_select_circle(lat,lon,geo_selection,lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map)
                     (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned) = geo_select_circle(lat_binned,lon_binned,geo_selection,lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned)
+        
+        elif top_level_menu_choice == "C": #load and correct a new filtered dataset (lcnfd)
+            lcnfd_menu_choice = "" 
+            while lcnfd_menu_choice != "Z": 
+            
+                lcnfd_menu_title = "CURRENT SETTINGS:\n" \
+                        "Loading filtered data from: %s\n" \
+                        "Loading pacific correction from: %s\n" \
+                        "Pacific correction type: %s\n" \
+                        "Date range for data (set wide to get all data):\n"\
+                        "Begin: %s\n"\
+                        "End: %s"\
+                        %(filtered_folder,corrections_folder,corr_type,
+                        str(filtered_startdate),str(filtered_enddate))
+                lcnfd_menu_text = [
+                        ["1","Change filtered data folder"],
+                        ["2","Change pacific correction folder"],
+                        ["3","Change pacific correction type"],
+                        ["4","Change dates"],
+                        ["5","Load using these settings"]
+                    ]
+                lcnfd_menu_choice = basic_menu(this_menu_title,
+                                              this_menu_text)
+                
+                if lcnfd_menu_choice == "1": #change filtered data folder
+                    filtered_folder = \
+                        change_var(filtered_folder,"Filtered data folder")
+                elif lcnfd_menu_choice == "2": #change pacific corrections folder
+                    corrections_folder = \
+                        change_var(corrections_folder,"Pacific corrections folder")
+                elif lcnfd_menu_choice == "3": #switch correction type
+                    if corr_type == "basic":
+                        corr_type == "advanced"
+                    elif corr_type == "advanced":
+                        corr_type == "basic"
+                elif lcnfd_menu_choice == "4": #change dates
+                    new_s_year = change_var(filtered_startdate.year,"Start time year")
+                    new_s_month= change_var(filtered_startdate.month,"Start time month")
+                    new_s_day  = change_var(filtered_startdate.day,"Start time day")
+                    filtered_startdate  = dt(new_s_year,new_s_month,new_s_day,0,0,0)
+                    new_e_year = change_var(  filtered_enddate.year,"End time year")
+                    new_e_month= change_var(  filtered_enddate.month,"End time month")
+                    new_e_day  = change_var(  filtered_enddate.day,"End time day")
+                    filtered_enddate    = dt(new_e_year,new_e_month,new_e_day,0,0,0)
+                    del new_s_year,new_s_month,new_s_day
+                    del new_e_year,new_e_month,new_e_day
+                elif lcnfd_menu_choice == "5": #execute
+                    (ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF) = \
+                        load_and_correct(filtered_startdate,filtered_enddate,
+                            filtered_folder=filtered_folder,
+                            corrections_folder=corrections_folder,
+                            corr_type=corr_type)
+                    print "New individual data has been loaded"
+                    
            
             
         elif top_level_menu_choice == "1": #Binned data
@@ -224,7 +277,7 @@ def main():
                 os.system('clear')
                 use_indiv_data_menu_choice = use_indiv_data_menu()
                 if use_indiv_data_menu_choice == "1": #dots on map
-                    dots_on_map_menu_choice == ""
+                    dots_on_map_menu_choice = ""
                     while dots_on_map_menu_choice.upper() != "Z":                    
                         os.system('clear')
                         dots_on_map_menu_choice = dots_on_map_menu()                    

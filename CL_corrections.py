@@ -6,6 +6,9 @@ and saves pickes"""
 import os
 import math
 from datetime import date
+from datetime import datetime as dt
+from datetime import timedelta as td
+import numpy as np
 
 def is_in_range(startdate,enddate,submitdate):
     """True/False: is submitdate between startdate and enddate"""
@@ -19,7 +22,7 @@ def last_day_of_month(indate):
     """Given a date, returns the last of that month""" 
     if indate.month == 12:
         return indate.replace(day=31)
-    return indate.replace(month=indate.month+1, day=1) - timedelta(days=1)
+    return indate.replace(month=indate.month+1, day=1) - td(days=1)
     
 def find_nearest(array,value):
     """Returns the nearest entry to value in array""" 
@@ -35,7 +38,7 @@ def load_filtered_main(data_folder,startdate,enddate):
     #Rather crudely, we use the timestamp encoded into the filenames.
     for root, dirs, files in os.walk(data_folder):
         for filename in files:
-            filedate = date(int(filename[19:23]),
+            filedate = dt(int(filename[19:23]),
                             int(filename[24:26]),
                             int(filename[26:28]))
             if is_in_range(startdate,enddate,filedate):
@@ -299,15 +302,16 @@ def load_and_correct(startdate,enddate,
     #The default value of filtered_folder will return False
     #This is far from foolproof, but it's a
     #useful quick catch of invalid input
-    path_valid = path_valid os.path.isdir(filtered_folder)
+    path_valid = os.path.isdir(filtered_folder)
     
     #if we haven't got a valid path, ask for one.
     while path_valid == False:
-        print "Enter the folder in which filtered data has been saved.
+        print "Need a valid path"
+        print "Enter the folder in which filtered data has been saved."
         print "Do not include year subdirectories, these will be navigated automatically."
         filtered_folder = raw_input("-->")
         #Check that is a valid path.
-        path_valid = path_valid os.path.isdir(path)
+        path_valid = os.path.isdir(filtered_folder)
         if path_valid == False:
             print "%s is not a valid path" %filtered_folder
     
@@ -321,14 +325,15 @@ def load_and_correct(startdate,enddate,
     #check if provided path for filtered data is valid
     #Same process & caveats as before...
     
-    path_valid = path_valid os.path.isdir(corrections_folder)
+    path_valid = os.path.isdir(corrections_folder)
     #if we haven't got a valid path, ask for one.
     while path_valid == False:
-        print "Enter the folder in which correctoins have been saved.
+        print "Need a valid path"
+        print "Enter the folder in which correctoins have been saved."
         print "Do not include year subdirectories, these will be navigated automatically."
         filtered_folder = raw_input("-->")
         #Check that is a valid path.
-        path_valid = path_valid os.path.isdir(path)
+        path_valid = os.path.isdir(corrections_folder)
         if path_valid == False:
             print "%s is not a valid path" %filtered_folder
     
@@ -351,13 +356,13 @@ def load_and_correct(startdate,enddate,
         del corr_option
     
     print "Applying AMFs and corrections"
-    if corr_type="advanced":
+    if corr_type == "advanced":
         (sat_VC,sat_DVC) = \
             AMF_and_correction(ULN,lat,time,
                                sat_SC,sat_DSC,AMF,
                                corr_year,corr_mon,corr_lat,
                                corrections)
-    elif corr_type="basic":
+    elif corr_type == "basic":
         (sat_VC,sat_DVC) = \
             BASIC_AMF_and_correction(lat,time,
                                      sat_SC,sat_DSC,AMF,
