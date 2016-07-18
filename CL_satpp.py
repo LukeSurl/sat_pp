@@ -2,7 +2,7 @@
 """CL_satpp.py -- A command-line interface for interogating the sat_pp dataset"""
 
 from datetime import datetime as dt
-from datetime import timedelta
+from datetime import timedelta as td
 import pickle
 from matplotlib.patches import Polygon
 import matplotlib.pyplot as plt
@@ -14,6 +14,7 @@ import numpy as np
 import math
 import os
 from geopy.distance import great_circle
+import scipy.stats as scistats
 
 def clearscreen():
     """Clears the screen. Checks the OS to deliver the correct command"""
@@ -655,10 +656,10 @@ def time_cycle(startdate,enddate,step_days,time,dataset,statistic):
     stat_collection = []
     time_collection = []
     while clocklow <= enddate:
-        clockhigh = clocklow + timedelta(days=step_days)
+        clockhigh = clocklow + td(days=step_days)
         this_dataset = time_select(clocklow,clockhigh,time,dataset)
         this_stat = calc_statistic(this_dataset,statistic)
-        central_time = clocklow + timedelta(days=step_days*0.5)
+        central_time = clocklow + td(days=step_days*0.5)
         stat_collection.append(this_stat)
         time_collection.append(central_time)
         clocklow = clockhigh
@@ -682,3 +683,92 @@ def save_pickle_indiv(name,ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time):
         print("Pickling individual data")
         pikname = name + "_1.p"
         pickle.dump( (ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time), open(pikname,"wb") )
+        
+def binner(lat,lon,vals,north,south,east,west,stat="mean",xdim=0.3125,ydim=0.25,do_extras=False):
+    """Divides the region into a grid, and computes a statistic for the values falling within it"""
+
+    num_xbins = int((east-west)/xdim) + 1
+    num_ybins = int((north-south)/ydim) + 1
+    
+    #use scistats.binned_statistic_2d with the np function chosen.
+    if stat == "mean" : #mean of values in each box
+        (binned_stat,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,vals,np.nanmean,bins=[num_xbins,num_ybins],
+            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            expand_binnumbers=True)
+    elif stat == "stdev" : #standard deviation of values in each box
+        (binned_stat,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,vals,np.nanstd,bins=[num_xbins,num_ybins],
+            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            expand_binnumbers=True)
+    elif stat == "sum" : #sum of all values in each box
+        (binned_stat,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,vals,np.nansum,bins=[num_xbins,num_ybins],
+            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            expand_binnumbers=True)
+    elif stat == "count" : #count of number of values in each box
+        (binned_stat,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,vals,notnancount,bins=[num_xbins,num_ybins],
+            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            expand_binnumbers=True)
+    elif stat == "quadsum" : #sum of squares of all values
+        qvals = list(np.multiply(vals,vals))
+        (binned_stat,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,qvals,np.nansum,bins=[num_xbins,num_ybins],
+            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            expand_binnumbers=True)
+    
+    #can also work out lats, lons and index map of bins.
+    #As this function is run several times, and these data would be the same
+    #on each iteration, this is made optional.
+    #Return of xedges,yedges also dependant on this option.
+    if do_extras:
+            
+        numberofdata = len(binnumber[0])
+        #index map is a list the same length as the individual data input
+        #it refers to which bin that data point has been assigned.
+        index_map = []
+        for i in range(0,numberofdata):
+            index_map.append(binnumber[0][i]*num_ybins + binnumber[1][i])
+        
+        #binned_stat is a 2D data array. The below makes this a 1D list
+        #Also creates 1D list of bins' lats and lons
+        lat_list = []
+        lon_list = []
+        out_list = []
+        for i in range(0,len(xedges)-1):
+           this_w = xedges[i]
+           this_e = xedges[i+1]
+           for j in range(0,len(yedges)-1):
+               this_s = yedges[j]
+               this_n = yedges[j+1]
+               lat_list.append((this_s+this_n)/2.)
+               lon_list.append((this_e+this_w)/2.)
+               out_list.append(data[i][j])
+        return(lat_list,lon_list,out_list,xedges,yedges,index_map)
+    else:
+        return(out_list)
+    
+def create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,north,south,east,west,xdim,ydim):
+    """Given the individual data, returns a full set of binned data"""
+
+    #Mean satellite observation 
+    (lat_binned,lon_binned,sat_VC_mean_binned,xedges,yedges,index_map) = \
+        binner(lat,lon,sat_VC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim)
+    #Standard deviation in satellite observation
+    sat_VC_stdev_binned = \
+        binner(lat,lon,sat_VC,north,south,east,west,stat="stdev",xdim=xdim,ydim=ydim)
+    #Mean error in satellite observation
+    sat_DVC_mean_binned = \
+        binner(lat,lon,sat_DVC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim)    
+    #Mean model observation
+    geos_VC_mean_binned = \
+        binner(lat,lon,geos_VC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim)
+    #Standard deviation in model values
+    geos_VC_stdev_binned = \
+        binner(lat,lon,geos_VC,north,south,east,west,stat="stdev",xdim=xdim,ydim=ydim)
+    #Count of number of observations
+    sat_VC_count_binned = \
+        binner(lat,lon,sat_VC,north,south,east,west,stat="count",xdim=xdim,ydim=ydim)
+
+
