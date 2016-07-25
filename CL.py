@@ -25,7 +25,8 @@ filtered_folder    = \
     "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/filtered/"
 corrections_folder= \
     "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/corrections/"
-corr_type="basic"    
+corr_type="basic"
+country_statefile="/home/users/lsurl/CL/country_state.csv"    
 south = 2.
 north = 38.
 west = 65.
@@ -49,19 +50,20 @@ if initial_choice == "1":
                        '/local_users/lsurl/runs' \
                        '/geosfp_025x03125_nochem_2014/',
                        '_20140301-20141231']
-    (NDVI_data_all,indv_data_all,binn_data_all) = \
-        load_new_pickles_all(current_pickle,verbose=True)
-    (NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
+    (indv_data_all,binn_data_all) = \
+        load_new_pickles_all(current_pickle,verbose=True,NDVI=False)
+    #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
     (lat,lon,
         sat_VC,sat_DVC,
         geos_VC,time,
         country,state,
         index_map) = indv_data_all
     (lat_binned,lon_binned,
-        sat_mean_binned,geos_mean_binned,
-        sat_uncer_binned,geos_stdev_binned,
-        dev_mean_binned,NDVI_mean_binned,
-        countries_binned,states_binned) = binn_data_all
+        sat_VC_mean_binned,sat_VC_stdev_binned,
+        sat_DVC_mean_binned,
+        geos_VC_mean_binned,geos_VC_stdev_binned,
+        country_binned,state_binned) = binn_data_all
+    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
     
 
 #main loop
@@ -77,6 +79,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["2","Use individual observations data"],
             ["G","Geographically select data to use"],
             ["C","Generate new dataset from filtered data and pacific corrections"],
+            ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
             ["R","Reload pickle"],
             ["E","Change current emissions files"],   
@@ -89,20 +92,21 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         (changed,current_pickle) = change_pickle(current_pickle)
         if changed:
             #reloading is time-consuming so only do if change made
-            (NDVI_data_all,indv_data_all,binn_data_all) \
-                = load_new_pickles_all(current_pickle,verbose=True)
-            (NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) \
-                = NDVI_data_all
+            (indv_data_all,binn_data_all) \
+                = load_new_pickles_all(current_pickle,verbose=True,NDVI=False)
+            #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) \
+            #    = NDVI_data_all
             (lat,lon,
                 sat_VC,sat_DVC,
                 geos_VC,time,
                 country,state,
                 index_map) = indv_data_all
             (lat_binned,lon_binned,
-                sat_mean_binned,geos_mean_binned,
-                sat_uncer_binned,geos_stdev_binned,
-                dev_mean_binned,NDVI_mean_binned,
-                countries_binned,states_binned) = binn_data_all
+             sat_VC_mean_binned,sat_VC_stdev_binned,
+             sat_DVC_mean_binned,
+             geos_VC_mean_binned,geos_VC_stdev_binned,
+             country_binned,state_binned) = binn_data_all
+            dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
         
     elif top_level_menu_choice == "E": #change emissions
         (changed,current_emfiles) = change_emfiles(current_emfiles)
@@ -132,7 +136,12 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         #re-unpack data sets to clear any previous geographic selection
         print "Reloading..."
         (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = indv_data_all
-        (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned) = binn_data_all
+        (lat_binned,lon_binned,
+             sat_VC_mean_binned,sat_VC_stdev_binned,
+             sat_DVC_mean_binned,
+             geos_VC_mean_binned,geos_VC_stdev_binned,
+             country_binned,state_binned) = binn_data_all
+        dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
         
         
     elif top_level_menu_choice == "G": #geographic selection option
@@ -141,17 +150,77 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         if before_geo != (type_geo_select,geo_selection): #if geo selection has changed
             print "Updating geographic selection..."
             if type_geo_select == "country":
-                (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = geo_select_regional(country,geo_selection,lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map)
-                (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned) = geo_select_regional(countries_binned,geo_selection,lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned)
+                (lat,lon,sat_VC,sat_DVC,geos_VC,
+                 time,country,state,index_map) =\
+                    geo_select_regional(country,geo_selection,
+                    lat,lon,sat_VC,sat_DVC,geos_VC,
+                    time,country,state,index_map)
+                (lat_binned,lon_binned,
+                 sat_VC_mean_binned,sat_VC_stdev_binned,
+                 sat_DVC_mean_binned,
+                 geos_VC_mean_binned,geos_VC_stdev_binned,
+                 countries_binned,states_binned) = geo_select_regional(
+                    country_binned,geo_selection,
+                    lat_binned,lon_binned,
+                    sat_VC_mean_binned,sat_VC_stdev_binned,
+                    sat_DVC_mean_binned,
+                    geos_VC_mean_binned,geos_VC_stdev_binned,
+                    country_binned,state_binned)
+                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
             elif type_geo_select == "state":
-                (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = geo_select_regional(state,geo_selection,lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map)
-                (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned) = geo_select_regional(states_binned,geo_selection,lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned)
+                (lat,lon,sat_VC,sat_DVC,geos_VC,
+                 time,country,state,index_map) =\
+                    geo_select_regional(state,geo_selection,
+                    lat,lon,sat_VC,sat_DVC,geos_VC,
+                    time,country,state,index_map)
+                (lat_binned,lon_binned,
+                 sat_VC_mean_binned,sat_VC_stdev_binned,
+                 sat_DVC_mean_binned,
+                 geos_VC_mean_binned,geos_VC_stdev_binned,
+                 countries_binned,states_binned) = geo_select_regional(
+                    state_binned,geo_selection,
+                    lat_binned,lon_binned,
+                    sat_VC_mean_binned,sat_VC_stdev_binned,
+                    sat_DVC_mean_binned,
+                    geos_VC_mean_binned,geos_VC_stdev_binned,
+                    country_binned,state_binned)
+                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
             elif type_geo_select == "rectangle":                   
-                (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = geo_select_rectangle(lat,lon,geo_selection,lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map)
-                (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned) = geo_select_rectangle(lat_binned,lon_binned,geo_selection,lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned)
+                (lat,lon,sat_VC,sat_DVC,geos_VC,
+                 time,country,state,index_map) =\
+                    geo_select_rectangle(lat,lon,geo_selection,
+                    lat,lon,sat_VC,sat_DVC,geos_VC,
+                    time,country,state,index_map)
+                (lat_binned,lon_binned,
+                 sat_VC_mean_binned,sat_VC_stdev_binned,
+                 sat_DVC_mean_binned,
+                 geos_VC_mean_binned,geos_VC_stdev_binned,
+                 countries_binned,states_binned) = geo_select_regional(
+                    lat_binned,lon_binned,geo_selection,
+                    lat_binned,lon_binned,
+                    sat_VC_mean_binned,sat_VC_stdev_binned,
+                    sat_DVC_mean_binned,
+                    geos_VC_mean_binned,geos_VC_stdev_binned,
+                    country_binned,state_binned)
+                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
             elif type_geo_select == "circle":
-                (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = geo_select_circle(lat,lon,geo_selection,lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map)
-                (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned) = geo_select_circle(lat_binned,lon_binned,geo_selection,lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned)
+                (lat,lon,sat_VC,sat_DVC,geos_VC,
+                 time,country,state,index_map) =\
+                    geo_select_circle(lat,lon,geo_selection,
+                    lat,lon,sat_VC,sat_DVC,geos_VC,
+                    time,country,state,index_map)
+                (lat_binned,lon_binned,
+                 sat_VC_mean_binned,sat_VC_stdev_binned,
+                 sat_DVC_mean_binned,
+                 geos_VC_mean_binned,geos_VC_stdev_binned,
+                 countries_binned,states_binned) = geo_select_circle(           
+                    lat_binned,lon_binned,geo_selection,
+                    lat_binned,lon_binned,
+                    sat_VC_mean_binned,sat_VC_stdev_binned,
+                    sat_DVC_mean_binned,
+                    geos_VC_mean_binned,geos_VC_stdev_binned,
+                    country_binned,state_binned)
+                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
     
     elif top_level_menu_choice == "C": #load and correct a new filtered dataset (lcnfd)
         lcnfd_menu_choice = "" 
@@ -199,16 +268,70 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 del new_s_year,new_s_month,new_s_day
                 del new_e_year,new_e_month,new_e_day
             elif lcnfd_menu_choice == "5": #execute
+                
+                #load+correct individual data
                 (ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF) = \
                     load_and_correct(filtered_startdate,filtered_enddate,
                         filtered_folder=filtered_folder,
                         corrections_folder=corrections_folder,
                         corr_type=corr_type)
                 print "New individual data has been loaded"
-                print "Now binning this data"               
                 
+                #bin data
+                print "Now binning this data"
+                (lat_binned,lon_binned,xedges,yedges,index_map,
+                 sat_VC_mean_binned,sat_VC_stdev_binned,sat_VC_count_binned,
+                 sat_DVC_mean_binned,
+                 geos_VC_mean_binned,geos_VC_stdev_binned) = \
+                 create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,
+                                   north,south,east,west,xdim,ydim)
+                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+                #NDVI should be coded in at this point
                 
-       
+                #Country and state matching
+                print "Matching countries and states"
+                print "Countries and state assignments will be loaded from %s" %country_statefile
+                print "Press enter to use this file or enter new location"
+                new_option = raw_input("-->")
+                if new_option != "":
+                    country_statefile == new_option
+                del new_option
+                print "Reading %s" %country_statefile
+                (csv_lat,csv_lon,csv_country,csv_state) = \
+                    load_regiondata(country_statefile,states=True)
+                print "Assigning country+state to indiv. data points"
+                (country,state) =\
+                    region_matcher(csv_lat,csv_lon,csv_country,csv_state,
+                                   lat,lon)
+                print "Assigning country+state to binned data points"
+                (country_binned,state_binned) =\
+                    region_matcher(csv_lat,csv_lon,csv_country,csv_state,
+                                   lat_binned,lon_binned)
+                print "Done. Do you wish to save these data as new pickles? Y/N"
+                option = basic_menu("Done. Do you wish to save"
+                                    " these data as new pickles [recommended]?",
+                                    [["Y","yes"],["N","no"]],quit_option=False)
+                if option == "Y":
+                    current_pickle = save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
+                                                  country,state,index_map,
+                                                  lat_binned,lon_binned,
+                                                  sat_VC_mean_binned,sat_VC_stdev_binned,
+                                                  sat_DVC_mean_binned,
+                                                  geos_VC_mean_binned,geos_VC_stdev_binned,
+                                                  None,
+                                                  country_binned,state_binned,index_map)
+                
+                del option
+                  
+    elif top_level_menu_choice == "S":
+        current_pickle = save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
+                                      country,state,index_map,
+                                      lat_binned,lon_binned,
+                                      sat_VC_mean_binned,sat_VC_stdev_binned,
+                                      sat_DVC_mean_binned,
+                                      geos_VC_mean_binned,geos_VC_stdev_binned,
+                                      None,
+                                      country_binned,state_binned,index_map)
         
     elif top_level_menu_choice == "1": #Binned data
         quit_binned_data_menu = False
@@ -223,19 +346,20 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     binned_map_menu_choice = binned_map_menu()
                     if   binned_map_menu_choice == "1": #mean satellite observations
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
-                        dataset = sat_mean_binned
+                        dataset = sat_VC_mean_binned
                     elif binned_map_menu_choice == "2": #uncertainty in satellite observations
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Uncertainty in mean satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
-                        dataset = sat_uncer_binned
+                        dataset = sat_VC_stdev_binned
                     elif binned_map_menu_choice == "3": #mean modelled values
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean modelled columns",vmin=0.,vmax=3.e16,units="molec.cm-2")
-                        dataset = geos_mean_binned
+                        dataset = geos_VC_mean_binned
                     elif binned_map_menu_choice == "4": #standard deviation in modelled values
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Standard deviation of modelled columns",vmin=0.,vmax=3.e16,units="molec.cm-2")
-                        dataset = geos_stdev_binned
+                        dataset = geos_VC_stdev_binned
                     elif binned_map_menu_choice == "5": #mean NDVI value
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean NDVI value",vmin=0.,vmax=1.,units="(unitless)")
-                        dataset = NDVI_mean_binned
+                        print "NDVI option not yet available"
+                        #(map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean NDVI value",vmin=0.,vmax=1.,units="(unitless)")
+                        #dataset = NDVI_mean_binned
                     elif binned_map_menu_choice == "6": #sigma deviation of model from observations
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Deviation of model from observations",vmin=-2.5,vmax=2.5,units="sigmas")
                         dataset = dev_mean_binned
@@ -257,15 +381,16 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 [dataset_choice,stat_choice] = basic_statistics_menu("binned")
                 if [dataset_choice,stat_choice] != ["Z","Z"]: #unless we're quitting
                     if dataset_choice == "1": #Mean satellite observations
-                        stat = calc_statistic(sat_mean_binned,  stat_choice)
+                        stat = calc_statistic(sat_VC_mean_binned,  stat_choice)
                     elif dataset_choice == "2": #uncertainty in satellite observations
-                        stat = calc_statistic(sat_uncer_binned, stat_choice)
+                        stat = calc_statistic(sat_VC_stdev_binned, stat_choice)
                     elif dataset_choice == "3": #mean modelled values
-                        stat = calc_statistic(geos_mean_binned, stat_choice)
+                        stat = calc_statistic(geos_VC_mean_binned, stat_choice)
                     elif dataset_choice == "4": #standard deviation in modelled values
-                        stat = calc_statistic(geos_stdev_binned,stat_choice)
+                        stat = calc_statistic(geos_VC_stdev_binned,stat_choice)
                     elif dataset_choice == "5": #mean NDVI value
-                        stat = calc_statistic(NDVI_mean_binned, stat_choice)
+                        print "NDVI option not yet available"
+                        #stat = calc_statistic(NDVI_mean_binned, stat_choice)
                     elif dataset_choice == "6": #sigma deviation of model from observations
                         stat = calc_statistic(dev_mean_binned , stat_choice)
                     print stat
@@ -298,7 +423,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                         map_preplot_menu_choice = "P"
                     
                     if dots_on_map_menu_choice != "Z" :                                               
-                        #At this point binned_map_preplot_menu_choice will be either Z (up menu), P (plot) or S (save)                    
+                        #At this point map_preplot_menu_choice will be either Z (up menu), P (plot) or S (save)                    
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
                             plot_dots_on_map(lat,lon,dataset,north,south,east,west,vmin=vmin,vmax=vmax,title=title,lab=units,save=True,save_filename=save_filename)
                         elif map_preplot_menu_choice.upper() == "P": #plotting the figure

@@ -380,7 +380,7 @@ def global_options(north,south,east,west,xdim,ydim,startdate,enddate):
 
 def change_pickle(current_pickle):
     os.system('clear')
-    print "Currently, pickles with prefix %s are loaded."
+    print "Currently, pickles with prefix %s are loaded." %current_pickle
     print "To change this, enter a new prefix."
     print "Otherwise, enter Z to keep current option and return totop menu"
     choice = raw_input("-->")
@@ -409,12 +409,36 @@ def change_var(var,var_name="[unspecified]"):
     var = former_type(raw_input("Enter new value for "+var_name+"-->"))
     return(var)    
 
-def load_new_pickles_all(current_pickle,verbose=True):
-    NDVI_data = load_new_pickles_NDVI(current_pickle,verbose=verbose)
-    indv_data = load_new_pickles_indv(current_pickle,verbose=verbose)
-    binn_data = load_new_pickles_binn(current_pickle,verbose=verbose)
+def load_new_pickles_all(current_pickle,verbose=True,NDVI=True,indv=True,binn=True):
+    if NDVI:
+        NDVI_data = load_new_pickles_NDVI(current_pickle,verbose=verbose)
+    if indv:
+        indv_data = load_new_pickles_indv(current_pickle,verbose=verbose)
+    if binn:
+        binn_data = load_new_pickles_binn(current_pickle,verbose=verbose)
     
-    return(NDVI_data,indv_data,binn_data)
+    if NDVI:
+        if indv:
+            if binn:
+                return(NDVI_data,indv_data,binn_data) #NIB
+            else:
+                return(NDVI_data,indv_data)           #NIx
+        else:
+            if binn:
+                return(NDVI_data,binn_data)           #NxB
+            else:
+                return(NDVI_data)                     #Nxx
+    else:
+        if indv:
+            if binn:
+                return(indv_data,binn_data)           #xIB
+            else:
+                return(indv_data)                     #xIx
+        else:
+            if binn:
+                return(binn_data)                     #xxB
+            else:
+                return()                              #xxx                    
 
     
 def load_new_pickles_NDVI(current_pickle,verbose=True):
@@ -459,24 +483,33 @@ def load_new_pickles_indv(current_pickle,verbose=True):
 def load_new_pickles_binn(current_pickle,verbose=True):     
     #Binned data
     if verbose:
-        print("Loading pickled binned data (full date range)")
-    (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned,index_map) = pickle.load( open(current_pickle + "_binned.p","rb") )
-    #(lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned) = stripallnans(lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned)
+        print("Loading pickled binned data (full date range)")      
+        
+    (lat_binned,lon_binned,
+     sat_VC_mean_binned,sat_VC_stdev_binned,
+     sat_DVC_mean_binned,
+     geos_VC_mean_binned,geos_VC_stdev_binned,
+     NDVI_binned,
+     country_binned,state_binned,
+     index_map2) = pickle.load( open(current_pickle + "_binned.p","rb") )
     
     if verbose:
         print "Pickled binned data now loaded as %i-long lists" %len(lat_binned)
-        print("Binned latitudes     : lat_binned       ")
-        print("Binned_longitudes    : lon_binned       ")
-        print("Binned obs., mean    : sat_mean_binned  ") 
-        print("Binned obs., uncer   : sat_uncer_binned ")
-        print("Binned modelled mean : geos_mean_binned ")
-        print("Binned modelled stdev: geos_stdev_binned")
-        print("Binned NDVI mean     : NDVI_mean_binned ")
-        print("Binned deviation mean: dev_mean_binned  ")
-        print("Country strings      : countries_binned ")
-        print("State strings        : states_binned    ")
+        print("Binned latitudes     : lat_binned         ")
+        print("Binned_longitudes    : lon_binned         ")
+        print("Binned obs., mean    : sat_VC_mean_binned ") 
+        print("Binned obs., stdev   : sat_VC_stdev_binned")
+        print("Binned obs. av. error: sat_DVC_mean_binned")
+        print("Binned modelled mean : geos_VC_mean_binned")
+        print("Binned modelled stdev: geos_VC_stdev_binned")
+        print("Country strings      : country_binned ")
+        print("State strings        : state_binned    ")
         print("-----------------------------")
-    binn_data = (lat_binned,lon_binned,sat_mean_binned,geos_mean_binned,sat_uncer_binned,geos_stdev_binned,dev_mean_binned,NDVI_mean_binned,countries_binned,states_binned)
+    binn_data = (lat_binned,lon_binned,
+     sat_VC_mean_binned,sat_VC_stdev_binned,
+     sat_DVC_mean_binned,
+     geos_VC_mean_binned,geos_VC_stdev_binned,
+     country_binned,state_binned)
     
     print("All data loaded. Have fun with it!")
     return(binn_data)
@@ -744,9 +777,13 @@ def binner(lat,lon,vals,north,south,east,west,stat="mean",xdim=0.3125,ydim=0.25,
                this_n = yedges[j+1]
                lat_list.append((this_s+this_n)/2.)
                lon_list.append((this_e+this_w)/2.)
-               out_list.append(data[i][j])
+               out_list.append(binned_stat[i][j])
         return(lat_list,lon_list,out_list,xedges,yedges,index_map)
     else:
+        out_list = []
+        for i in range(0,len(xedges)-1):
+            for j in range(0,len(yedges)-1):
+                out_list.append(binned_stat[i][j])
         return(out_list)
     
 def create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,north,south,east,west,xdim,ydim):
@@ -754,10 +791,14 @@ def create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,north,south,east,west,xdim,
 
     #Mean satellite observation 
     (lat_binned,lon_binned,sat_VC_mean_binned,xedges,yedges,index_map) = \
-        binner(lat,lon,sat_VC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim)
+        binner(lat,lon,sat_VC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim,
+               do_extras=True)
     #Standard deviation in satellite observation
     sat_VC_stdev_binned = \
         binner(lat,lon,sat_VC,north,south,east,west,stat="stdev",xdim=xdim,ydim=ydim)
+    #Count of number of observations
+    sat_VC_count_binned = \
+        binner(lat,lon,sat_VC,north,south,east,west,stat="count",xdim=xdim,ydim=ydim)
     #Mean error in satellite observation
     sat_DVC_mean_binned = \
         binner(lat,lon,sat_DVC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim)    
@@ -767,8 +808,107 @@ def create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,north,south,east,west,xdim,
     #Standard deviation in model values
     geos_VC_stdev_binned = \
         binner(lat,lon,geos_VC,north,south,east,west,stat="stdev",xdim=xdim,ydim=ydim)
-    #Count of number of observations
-    sat_VC_count_binned = \
-        binner(lat,lon,sat_VC,north,south,east,west,stat="count",xdim=xdim,ydim=ydim)
 
+    return(lat_binned,lon_binned,xedges,yedges,index_map,
+           sat_VC_mean_binned,sat_VC_stdev_binned,sat_VC_count_binned,
+           sat_DVC_mean_binned,
+           geos_VC_mean_binned,geos_VC_stdev_binned)
+
+def load_regiondata(filename,states=True):
+    """Reads a csv file which reports the country (and, optionally, the state) on a grid"""
+    cs = open(filename,"r")
+    #Empty lists to populate
+    cs_lat = []
+    cs_lon = []
+    cs_country = []
+    if states:
+        cs_state = []   
+    for line in cs:
+        line = line.strip()
+        columns = line.split(",")
+        cs_lat.append(float(columns[0]))
+        cs_lon.append(float(columns[1]))
+        cs_country.append( columns[2] )
+        if states:
+            cs_state.append( columns[3]    )    
+    cs.close() #we can close the file here
+    if states:
+        return(cs_lat,cs_lon,cs_country,cs_state)
+    else:
+        return(cs_lat,cs_lon,cs_country)
+
+def find_nearest(array,value):
+    """A function that returns the nearest value in a sorted array""" 
+    idx = np.searchsorted(array, value, side="left")
+    if idx > 0 and (idx == len(array) or math.fabs(value - array[idx-1]) < math.fabs(value - array[idx])):
+        return array[idx-1]
+    else:
+        return array[idx]
+
+def notnancount(data):
+    """Returns count of values of data that are not NaN""" 
+    return(np.count_nonzero(~np.isnan(data)))
+
+
+def region_matcher(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
+    """For each lat,lon pair, assigns a country/state based on the output of load_regiondata"""
+    
+    num_cs = len(cs_lat)
+    
+    grid_lat = sorted(list(set(cs_lat)))
+    grid_lon = sorted(list(set(cs_lon)))
+    
+    #Now, for each entry in lat_list etc., get the corresponding index in cs
+    #and populate lists country_out_list and state_out   
+    num_grid = len(lat)       
+    country_out = []
+    if states:
+        state_out = []
+    for line in range(0,num_grid):
+        nearest_lat = find_nearest(grid_lat,lat[line])
+        nearest_lon = find_nearest(grid_lon,lon[line])
+        index = [i for i in range(0,num_cs) if ((nearest_lat == cs_lat[i]) and (nearest_lon == cs_lon[i]))]
+        #print index
+        country_out.append(cs_country[index[0]])
+        if states:
+            state_out.append(cs_state[index[0]])
+    if states:
+        return(country_out,state_out)
+    else:
+        return(country_out)
+        
+def save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
+                 country,state,index_map,
+                 lat_binned,lon_binned,
+                 sat_VC_mean_binned,sat_VC_stdev_binned,
+                 sat_DVC_mean_binned,
+                 geos_VC_mean_binned,geos_VC_stdev_binned,
+                 NDVI_binned,
+                 country_binned,state_binned,index_map2):
+    print "Enter path for pickles to saved to (blank entry for script folder):"
+    pickle_save_path = raw_input("-->")
+    
+    #add in a final slash if the user has missed it
+    #if it's blank it defaults to the script directory
+    if pickle_save_path != "": 
+        if not pickle_save_path.endswith("/"):
+            pickle_save_path = pickle_save_path + "/"
+            
+    print "Enter prefix for pickle file names:"
+    pickle_prefix = raw_input("-->")
+    
+    pickle.dump((lat,lon,sat_VC,sat_DVC,geos_VC,time,
+                 country,state,index_map),
+                 open(pickle_save_path + pickle_prefix + "_2.p","wb"))
+    #"None" is space for NDVI data             
+    pickle.dump((lat_binned,lon_binned,
+                 sat_VC_mean_binned,sat_VC_stdev_binned,
+                 sat_DVC_mean_binned,
+                 geos_VC_mean_binned,geos_VC_stdev_binned,
+                 NDVI_binned,
+                 country_binned,state_binned,
+                 index_map2),
+                 open(pickle_save_path + pickle_prefix + "_binned.p","wb"))
+    current_pickle = pickle_save_path + pickle_prefix
+    return(current_pickle)
 
