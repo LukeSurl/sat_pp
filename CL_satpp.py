@@ -15,6 +15,7 @@ import math
 import os
 from geopy.distance import great_circle
 import scipy.stats as scistats
+from numbers import Number
 
 def clearscreen():
     """Clears the screen. Checks the OS to deliver the correct command"""
@@ -79,12 +80,13 @@ def use_binned_data_menu():
 
 def use_indiv_data_menu():
     choice = ""
-    while choice.upper() not in ["1","2","3","Z"]:
+    while choice.upper() not in ["1","2","3","4","Z"]:
         os.system('clear')
         print "USING INDIVIDUAL DATA"
         print "[1] Simple dots-on-map"
         print "[2] Compute basic statistics"
         print "[3] Compute timeseries statistics"
+        print "[4] Compare two datasets"
         print "[Z] Return to previous menu"
         choice = raw_input("-->")
     return(choice.upper())        
@@ -911,4 +913,124 @@ def save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
                  open(pickle_save_path + pickle_prefix + "_binned.p","wb"))
     current_pickle = pickle_save_path + pickle_prefix
     return(current_pickle)
+    
+def select_a_var(var_names,vartuple,purpose="",numbers_only=True):
+    """menu to select one of many variables supplied in a tuple"""
+    menu_options = []
+    menu_counter = 0
+    for var in vartuple:
+        #don't include non-numerical datasets if numbers_only is True
+        if isinstance(var[0],Number) or not numbers_only: 
+            menu_options.append([str(menu_counter),var_names[menu_counter]])
+        menu_counter += 1
+
+    if purpose == "":
+        #if purpose isn't chosen, have a generic title for this menu
+        menu_title = "Choose data:"
+    else:
+        menu_title = "Choose data for %s:" %purpose
+    var_choice_no = int(basic_menu(menu_title,menu_options,quit_option=False))
+    return(vartuple[var_choice_no],var_names)
+
+def two_var_comparison(var_names,vartuple):
+    (xvar,xvar_name) = select_a_var(var_names,vartuple,
+                                    "independant (x-axis) variable",numbers_only=True)
+    (yvar,yvar_name) = select_a_var(var_names,vartuple,
+                                    "dependant (y-axis) variable",numbers_only=True)
+    type_of_comparison = ""
+    while type_of_comparison != "Z":
+        type_of_comparison = basic_menu("Choose type of comparison:",[
+                                        ["1","Scatter plot"],
+                                        ["2","Simple correlation statistics"],
+                                        ["3","Error bar plot"],
+                                        ["4","Advanced correlation statistics"]],
+                                        quit_option=True)
+                                        
+        #if 3 or 4, will need to define errors on one or both datasets.
+        if type_of_comparison in [3,4]:
+            [error_x_option,error_y_option] = ["",""]
+            while "Z" not in [error_x_option,error_y_option]:
+                
+                #for x
+                error_x_option = basic_menu("How is error in %s determined?" %xvar_name,[
+                                            ["1","No error"],
+                                            ["2","Fixed value for all data"],
+                                            ["3","Fixed fraction for all data"],
+                                            ["4","Use existing dataset"]],
+                                            quit_option=True)
+                if error_x_option == "Z":
+                    type_of_comparison = "backtomenu" #go back to type_of_comparison menu
+                    continue
+                elif error_x_option == "1":
+                    xvar_errs = list(np.zeros_like(xvar))
+                elif error_x_option == "2":                                  
+                    xvar_errs = list(np.zeros_like(xvar))
+                    fixed_error_value = float(raw_input("Enter fixed error value\n"
+                                                        "-->"))
+                    for i in range(0,len(xvar_errs)):
+                        xvar_errs[i] = fixed_error_value
+                    del fixed_error_value
+                elif error_x_option == "3":
+                    xvar_errs = list(np.zeros_like(xvar))
+                    fraction_error_value =float(raw_input("Enter fractional error value\n"
+                                                          "-->"))
+                    for i in range(0,len(xvar_errs)):
+                        xvar_errs[i] = xvar[i]*fraction_error_value
+                    del fractional_error_value
+                elif error_x_option == "4":
+                    (_,xvar_errs) = select_a_var(var_names,vartuple,
+                                                 "errors in independant (x-axis) variable",
+                                                 numbers_only=True)   
+                
+                #for y
+                error_y_option = basic_menu("How is error in %s determined?" %yvar_name,[
+                                            ["1","No error"],
+                                            ["2","Fixed value for all data"],
+                                            ["3","Fixed fraction for all data"],
+                                            ["4","Use existing dataset"]],
+                                            quit_option=True)
+                if error_y_option == "Z":
+                    type_of_comparison = "backtomenu" #go back to type_of_comparison menu
+                    continue
+                elif error_y_option == "1":
+                    yvar_errs = list(np.zeros_like(yvar))
+                elif error_y_option == "2":                                  
+                    yvar_errs = list(np.zeros_like(yvar))
+                    fiyed_error_value = float(raw_input("Enter fixed error value\n"
+                                                        "-->"))
+                    for i in range(0,len(yvar_errs)):
+                        yvar_errs[i] = fixed_error_value
+                    del fixed_error_value
+                elif error_y_option == "3":
+                    yvar_errs = list(np.zeros_like(yvar))
+                    fraction_error_value =float(raw_input("Enter fractional error value\n"
+                                                          "-->"))
+                    for i in range(0,len(yvar_errs)):
+                        yvar_errs[i] = yvar[i]*fraction_error_value
+                    del fractional_error_value
+                elif error_y_option == "4":
+                    (_,yvar_errs) = select_a_var(var_names,vartuple,
+                                                 "errors in independant (y-axis) variable",
+                                                 numbers_only=True)                 
+                                        
+        if type_of_comparison == "1":
+            scatter_setup(xvar,yvar,xvar_name,yvar_name)
+        elif type_of_comparison == "2":
+            print "Linear regression:"
+            slope, intercept, r_value, p_value, std_err = scistats.linregress(xvar,yvar)
+            print "Best-fit line: y = %+.2gx%+.2g " %(slope,intercept)
+            r_squared = r_value * r_value
+            print "R-squared    : %.4g " %r_squared
+            print "P-value      : %.4g " %p_value
+            print "Standard err : %g "   %std_err        
+            pearsonr = scistats.pearsonr(xvar,yvar)
+            print "Pearson's correlation coefficient:\n %f, 2-tailed p-value: %f" %(pearsonr[0],pearsonr[1])
+            polyfit = np.polyfit(xvar, yvar, 1)
+        elif type_of_comparison == "3":
+            #scatter plot with error bars.
+            pass
+        elif type_of_comparison == "4":
+            #WYIBF analysis
+            pass
+        _ = raw_input("Press enter to continue -->")
 

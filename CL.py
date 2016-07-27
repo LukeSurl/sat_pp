@@ -8,6 +8,24 @@ from datetime import datetime as dt
 #"shorthand" variables
 yesno = [["Y","Yes"],["N","No"]] 
 
+indiv_varnames = ["latitude",
+                  "longitude",
+                  "Observed vertical column",
+                  "Error in observed vertical column",
+                  "Modelled vertical column",
+                  "Time",
+                  "Country",
+                  "State"]
+binned_varnames= ["latitude",
+                  "longitude",
+                  "Observed vertical column, mean in bin",
+                  "Observed vertical column, standard deviation in bin",
+                  "Error in observed vertical column, mean in bin",
+                  "Modelled vertical column, mean in bin",
+                  "Modelled vertical column, standard deviation in bin",
+                  "Country",
+                  "State"]
+
 
 #initialisation
 initial_choice = basic_menu(
@@ -454,6 +472,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     print stat_series
                     print time_series
                     null = raw_input("Press enter to continue-->")
+          
+            elif use_indiv_data_menu_choice == "4": #compare datasets
+                two_var_comparison(indiv_varnames,
+                                   (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))
 
         
                
