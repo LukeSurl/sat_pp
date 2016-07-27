@@ -352,16 +352,38 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                       country_binned,state_binned,index_map)
         
     elif top_level_menu_choice == "1": #Binned data
-        quit_binned_data_menu = False
-        while quit_binned_data_menu == False:
-            os.system('clear')
-            use_binned_data_menu_choice = use_binned_data_menu()
+        #ubd = use binned data
+        ubd_menu_choice = ""
+        while ubd_menu_choice != "Z":
+
+            ubd_menu_title = "USING BINNED DATA"
+            ubd_menu_text  = [
+                ["1","Plot gridded data on map"],
+                ["2","Compute basic statistics"]
+                ]
+            
+            ubd_menu_choice = basic_menu(ubd_menu_title,
+                                         ubd_menu_text,
+                                         quit_option="True")
                    
-            if use_binned_data_menu_choice == "1": #Binned map
+            if ubd_menu_choice == "1": #Binned map
                 quit_binned_map_menu = False
                 while quit_binned_map_menu == False:                    
                     os.system('clear')
-                    binned_map_menu_choice = binned_map_menu()
+                    binned_map_menu_title = "Plotting map of binned data\n"\
+                                            "Loaded pickle and global options will be used\n"\
+                                            "Print which variable?"
+                    binned_map_menu_text = [
+                                            ["1","Mean satellite observations"],
+                                            ["2","Calculated uncertainty in satellite observations"],
+                                            ["3","Mean model values"],
+                                            ["4","Standard deviation of model values"],
+                                            ["5","Mean NDVI value"],
+                                            ["6","Mean deviation of model from observations (sigmas)"]
+                                           ]
+                    binned_map_menu_choice = basic_menu(binned_map_menu_title,
+                                                        binned_map_menu_text,
+                                                        quit_option=True)
                     if   binned_map_menu_choice == "1": #mean satellite observations
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
                         dataset = sat_VC_mean_binned
@@ -395,7 +417,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                             plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,north,south,east,west,title=title,vmin=vmin,vmax=vmax,lab=units,save=False)
                         else: #no plot
                             pass
-            elif use_binned_data_menu_choice == "2": #statisics
+            elif ubd_menu_choice == "2": #statisics
                 [dataset_choice,stat_choice] = basic_statistics_menu("binned")
                 if [dataset_choice,stat_choice] != ["Z","Z"]: #unless we're quitting
                     if dataset_choice == "1": #Mean satellite observations
@@ -413,34 +435,49 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                         stat = calc_statistic(dev_mean_binned , stat_choice)
                     print stat
                     null = raw_input("Press enter to continue-->")
-                    
-            if use_binned_data_menu_choice == "Z": #Exit                   
-                quit_binned_data_menu = True
-    
+                        
     elif top_level_menu_choice == "2": #Indiv data
-        use_indiv_data_menu_choice = ""
-        while use_indiv_data_menu_choice.upper() != "Z":
-            os.system('clear')
-            use_indiv_data_menu_choice = use_indiv_data_menu()
-            if use_indiv_data_menu_choice == "1": #dots on map
-                dots_on_map_menu_choice = ""
-                while dots_on_map_menu_choice.upper() != "Z":                    
-                    os.system('clear')
-                    dots_on_map_menu_choice = dots_on_map_menu()                    
-                    if   dots_on_map_menu_choice == "1": #mean satellite observations
+        #uid = use individual data
+        uid_menu_choice = ""
+        while uid_menu_choice != "Z":
+            uid_menu_title = "USING INDIVIDUAL DATA"
+            uid_menu_text  = [
+                ["1","Simple dots-on-map"],
+                ["2","Compute basic statistics"],
+                ["3","Compute timeseries statistics"],
+                ["4","Compare two datasets"]
+                ]
+            uid_menu_choice = basic_menu(uid_menu_title,
+                                         uid_menu_text,
+                                         quit_option=True)
+            if uid_menu_choice == "1": #dots on map
+                #dom = dots on map
+                dom_menu_choice = ""
+                while dom_menu_choice != "Z":
+                    dom_menu_title = "Plotting map of binned data\n"\
+                                     "Loaded pickle and global options will be used\n"\
+                                     "Print which variable?"
+                    dom_menu_text = [
+                                     ["1","Mean satellite observations"],  
+                                     ["2","Calculated uncertainty in satellite obsservations"],
+                                     ["3","Mean model values"]]
+                    dom_menu_choice = basic_menu(dom_menu_title,
+                                                 dom_menu_text,
+                                                 quit_option=True)                    
+                    if   dom_menu_choice == "1": #mean satellite observations
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
                         dataset = sat_VC
-                    elif dots_on_map_menu_choice == "2": #uncertainty in satellite observations
+                    elif dom_menu_choice == "2": #uncertainty in satellite observations
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Uncertainty in satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
                         dataset = sat_DVC
-                    elif dots_on_map_menu_choice == "3": #mean modelled values
+                    elif dom_menu_choice == "3": #mean modelled values
                         (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Modelled columns",vmin=0.,vmax=3.e16,units="molec.cm-2")
                         dataset = geos_VC
                     
-                    if map_preplot_menu_choice == "": #allow for quick no-entrying
-                        map_preplot_menu_choice = "P"
+                    #if map_preplot_menu_choice == "": #allow for quick no-entrying
+                    #    map_preplot_menu_choice = "P"
                     
-                    if dots_on_map_menu_choice != "Z" :                                               
+                    if dom_menu_choice != "Z" :                                               
                         #At this point map_preplot_menu_choice will be either Z (up menu), P (plot) or S (save)                    
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
                             plot_dots_on_map(lat,lon,dataset,north,south,east,west,vmin=vmin,vmax=vmax,title=title,lab=units,save=True,save_filename=save_filename)
@@ -448,7 +485,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                             plot_dots_on_map(lat,lon,dataset,north,south,east,west,vmin=vmin,vmax=vmax,title=title,lab=units,save=False)
                         else: #no plot
                             pass     
-            elif use_indiv_data_menu_choice == "2": #statisics
+            elif uid_menu_choice == "2": #statisics
                 [dataset_choice,stat_choice] = basic_statistics_menu("indiv")
                 if [dataset_choice,stat_choice] != ["Z","Z"]: #unless we're quitting
                     if dataset_choice == "1": #Mean satellite observations
@@ -460,7 +497,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     print stat
                     null = raw_input("Press enter to continue-->")
             
-            elif use_indiv_data_menu_choice == "3": #timeseries statistics
+            elif uid_menu_choice == "3": #timeseries statistics
                 [dataset_choice,stat_choice,step_days] = timeseries_statistics_menu()
                 if [dataset_choice,stat_choice,step_days] != ["Z","Z",0]: #unless we're quitting
                     if dataset_choice == "1": #mean satellite observations
@@ -473,7 +510,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     print time_series
                     null = raw_input("Press enter to continue-->")
           
-            elif use_indiv_data_menu_choice == "4": #compare datasets
+            elif uid_menu_choice == "4": #compare datasets
                 two_var_comparison(indiv_varnames,
                                    (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))
 

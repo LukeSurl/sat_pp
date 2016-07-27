@@ -49,64 +49,80 @@ def initial():
         choice = raw_input("-->")
     return(choice.upper())
 
-def top_level_menu(current_pickle,current_emfiles):
-    choice = ""
-    while not(choice.upper() in ["1","2","G","P","R","E","X","Z"]):
-        os.system('clear')
-        print "TOP LEVEL MENU"
-        print "Current pickles loaded: %s" %current_pickle
-        print "Current emissions files are: %sXXX%s" %(current_emfiles[0],current_emfiles[1])
-        print "[1] Use binned data"
-        print "[2] Use individual observations data"
-        print "[G] Geographically select data to use"
-        print "[P] Change pickle"
-        print "[R] Reload pickle"
-        print "[E] Change current emissions files"   
-        print "[X] Inspect and change global options"
-        print "[Z] Quit"
-        choice = raw_input("-->")
-    return(choice.upper())
+#Simple menus replaced with calls to basic menu.
 
-def use_binned_data_menu():
-    choice = ""
-    while not(choice.upper() in ["1","2","Z"]):
-        os.system('clear')
-        print "USING BINNED DATA"
-        print "[1] Plot gridded data on map"
-        print "[2] Compute basic statistics"
-        print "[Z] Return to top level menu" 
-        choice = raw_input("-->")
-    return(choice.upper())
-
-def use_indiv_data_menu():
-    choice = ""
-    while choice.upper() not in ["1","2","3","4","Z"]:
-        os.system('clear')
-        print "USING INDIVIDUAL DATA"
-        print "[1] Simple dots-on-map"
-        print "[2] Compute basic statistics"
-        print "[3] Compute timeseries statistics"
-        print "[4] Compare two datasets"
-        print "[Z] Return to previous menu"
-        choice = raw_input("-->")
-    return(choice.upper())        
-    
-def binned_map_menu():
-    choice = ""
-    while not(choice.upper() in ["1","2","3","4","5","6","Z"]):
-        os.system('clear')
-        print "Plotting map of binned data"
-        print "Loaded pickle and global options will be used"
-        print "Print which variable?"
-        print "[1] Mean satellite observations"  
-        print "[2] Calculated uncertainty in satellite obsservations" 
-        print "[3] Mean model values" 
-        print "[4] Standard deviation of model values" 
-        print "[5] Mean NDVI value" 
-        print "[6] Mean deviation of model from observations (sigmas)" 
-        print "[Z] Return to previous menu"
-        choice = raw_input("-->")
-    return(choice.upper())
+#def top_level_menu(current_pickle,current_emfiles):
+#    choice = ""
+#    while not(choice.upper() in ["1","2","G","P","R","E","X","Z"]):
+#        os.system('clear')
+#        print "TOP LEVEL MENU"
+#        print "Current pickles loaded: %s" %current_pickle
+#        print "Current emissions files are: %sXXX%s" %(current_emfiles[0],current_emfiles[1])
+#        print "[1] Use binned data"
+#        print "[2] Use individual observations data"
+#        print "[G] Geographically select data to use"
+#        print "[P] Change pickle"
+#        print "[R] Reload pickle"
+#        print "[E] Change current emissions files"   
+#        print "[X] Inspect and change global options"
+#        print "[Z] Quit"
+#        choice = raw_input("-->")
+#    return(choice.upper())
+#
+#def use_binned_data_menu():
+#    choice = ""
+#    while not(choice.upper() in ["1","2","Z"]):
+#        os.system('clear')
+#        print "USING BINNED DATA"
+#        print "[1] Plot gridded data on map"
+#        print "[2] Compute basic statistics"
+#        print "[Z] Return to top level menu" 
+#        choice = raw_input("-->")
+#    return(choice.upper())
+#
+#def use_indiv_data_menu():
+#    choice = ""
+#    while choice.upper() not in ["1","2","3","4","Z"]:
+#        os.system('clear')
+#        print "USING INDIVIDUAL DATA"
+#        print "[1] Simple dots-on-map"
+#        print "[2] Compute basic statistics"
+#        print "[3] Compute timeseries statistics"
+#        print "[4] Compare two datasets"
+#        print "[Z] Return to previous menu"
+#        choice = raw_input("-->")
+#    return(choice.upper())        
+#    
+#def binned_map_menu():
+#    choice = ""
+#    while not(choice.upper() in ["1","2","3","4","5","6","Z"]):
+#        os.system('clear')
+#        print "Plotting map of binned data"
+#        print "Loaded pickle and global options will be used"
+#        print "Print which variable?"
+#        print "[1] Mean satellite observations"  
+#        print "[2] Calculated uncertainty in satellite obsservations" 
+#        print "[3] Mean model values" 
+#        print "[4] Standard deviation of model values" 
+#        print "[5] Mean NDVI value" 
+#        print "[6] Mean deviation of model from observations (sigmas)" 
+#        print "[Z] Return to previous menu"
+#        choice = raw_input("-->")
+#    return(choice.upper())
+#
+#def dots_on_map_menu():
+#    choice = ""
+#    while not(choice.upper() in ["1","2","3","Z"]):
+#        os.system('clear')
+#        print "Plotting map of binned data"
+#        print "Loaded pickle and global options will be used"
+#        print "Print which variable?"
+#        print "[1] Mean satellite observations"  
+#        print "[2] Calculated uncertainty in satellite obsservations" 
+#        print "[3] Mean model values" 
+#        print "[Z] Return to previous menu"
+#        choice = raw_input("-->")
+#    return(choice.upper())
 
 def basic_statistics_menu(data_type,quickinput=["0","0"]):
     """A menu for selecting a basic statistical operator for a given dataset"""
@@ -214,21 +230,6 @@ def calc_statistic(dataset,stat_choice):
     elif stat_choice == "3": #count
         return np.count_nonzero(~np.isnan(dataset))
         
-
-    
-def dots_on_map_menu():
-    choice = ""
-    while not(choice.upper() in ["1","2","3","Z"]):
-        os.system('clear')
-        print "Plotting map of binned data"
-        print "Loaded pickle and global options will be used"
-        print "Print which variable?"
-        print "[1] Mean satellite observations"  
-        print "[2] Calculated uncertainty in satellite obsservations" 
-        print "[3] Mean model values" 
-        print "[Z] Return to previous menu"
-        choice = raw_input("-->")
-    return(choice.upper())
     
 def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,units="molec.cm-2"):
     choice = "xx"    
@@ -248,7 +249,7 @@ def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,units="molec.cm-2"
             print "[T] Change title"
             print "[C] Change colourbar min/max"
             print "[U] Change units text"
-            print "[P] or [ ] Plot figure on screen"
+            print "[P] Plot figure on screen"
             print "[S] Save figure."
             print "[Z] Return to previous menu"
             choice = raw_input("-->")
