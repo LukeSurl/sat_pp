@@ -963,7 +963,7 @@ def two_var_comparison(var_names,vartuple):
                     type_of_comparison = "backtomenu" #go back to type_of_comparison menu
                     continue
                 elif error_x_option == "1":
-                    xvar_errs = list(np.zeros_like(xvar))
+                    xvar_errs = None
                 elif error_x_option == "2":                                  
                     xvar_errs = list(np.zeros_like(xvar))
                     fixed_error_value = float(raw_input("Enter fixed error value\n"
@@ -994,7 +994,7 @@ def two_var_comparison(var_names,vartuple):
                     type_of_comparison = "backtomenu" #go back to type_of_comparison menu
                     continue
                 elif error_y_option == "1":
-                    yvar_errs = list(np.zeros_like(yvar))
+                    yvar_errs = None
                 elif error_y_option == "2":                                  
                     yvar_errs = list(np.zeros_like(yvar))
                     fiyed_error_value = float(raw_input("Enter fixed error value\n"
@@ -1034,4 +1034,68 @@ def two_var_comparison(var_names,vartuple):
             #WYIBF analysis
             pass
         _ = raw_input("Press enter to continue -->")
+        
+def error_bar_scatter(x_var,y_var,
+                      x_error=None,y_error=None,
+                      x_min=None,x_max=None,y_min=None,y_max=None,
+                      x_label="",y_label="",
+                      alpha=None
+                      title="",
+                      do_best_fit=False
+                      do_best_fit_equation=False
+                      show=True):
+    """Draws a scatter plot of two data sets. Best fit line and error bars optional"""
+    
+    #if alpha (transparency) undefined, estimate a good alpha based on the dataset size
+    if alpha == None:
+        alpha = float(len(x_var))^0.2
+        
+    #if plotting mins and maxes are not defined, use mins and maxes of data,
+    if x_min == None:
+        x_min = np.nanmin(x_var)
+    if x_max == None:
+        x_max = np.nanmax(x_var)
+    if y_min == None:
+        y_min = np.nanmin(y_var)
+    if y_max == None:
+        y_max = np.nanmin(y_var)
+        
+    #consider all 0 error to be no errors defined    
+    if x_error == None and y_error == None: #no error bars
+        plt.scatter(x_var, y_var,
+                    alpha=alpha, fmt="o", color='g')
+    elif x_error != None and y_error == None: #bars for x, none for y
+        plt.errorbar(x_data, y_data, xerr=x_error,
+                     alpha=alpha, fmt="o", color='g')
+    elif x_error == None and y_error != None: #none for x, bars for y
+        plt.errorbar(x_data, y_data, yerr=y_error,
+                     alpha=alpha, fmt="o", color='g')
+    elif x_error != None and y_error != None: #bars for x, bars for y
+        plt.errorbar(x_data, y_data, xerr=x_error, yerr=y_error,
+                     alpha=alpha, fmt="o", color='g')   
+    
+    if do_best_fit or do_best_fit_equation
+        par = np.polyfit(x_data, y_data, 1, full=True)
+        slope=par[0][0]
+        intercept=par[0][1]
+        line_xs = [x_min, x_max]
+        line_ys = [x_min*slope + intercept,x_max*slope + intercept]
+        if do_best_fit:
+            plt.plot(line_xs,line_ys,'-r')
+        if do_best_fit_equation:
+            plt.text((x_max-x_min)*0.1 + x_min,(y_max-y_min)*0.9 + y_min,"fit: "+str("%.2f" %slope)+"x "+str("%+.2e" %intercept))
+    
+    #axis labels       
+    plt.xlabel(x_label, fontsize=16)
+    plt.ylabel(y_label, fontsize=16)
+    #axis limits
+    plt.xlim(x_min, x_max)
+    plt.ylim(y_min, y_max)
+    #grid
+    plt.grid(b=True, which='major', color='0.65')
+    #title
+    plt.title(title)
+    
+    if show:
+        plt.show()
 
