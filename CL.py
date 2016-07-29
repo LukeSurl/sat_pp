@@ -2,6 +2,7 @@
 
 from CL_satpp import *
 from CL_corrections import *
+from CL_oversampler import *
 import os
 from datetime import datetime as dt
 
@@ -446,6 +447,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 ["2","Compute basic statistics"],
                 ["3","Compute timeseries statistics"],
                 ["4","Compare two datasets"]
+                ["5","Oversample"]
                 ]
             uid_menu_choice = basic_menu(uid_menu_title,
                                          uid_menu_text,
@@ -513,6 +515,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             elif uid_menu_choice == "4": #compare datasets
                 two_var_comparison(indiv_varnames,
                                    (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))
+            elif uid_menu_choice == "5": #oversampler
+                oversample(indiv_varnames,
+                           (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))
 
         
                
