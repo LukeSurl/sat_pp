@@ -517,7 +517,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                    (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))
             elif uid_menu_choice == "5": #oversampler
                 oversample(indiv_varnames,
-                           (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))
+                           (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state),
+                           lat,lon)
 
         
                
