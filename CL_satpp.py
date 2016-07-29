@@ -1039,7 +1039,7 @@ def error_bar_scatter(x_var,y_var,
                       x_error=None,y_error=None,
                       x_min=None,x_max=None,y_min=None,y_max=None,
                       x_label="",y_label="",
-                      alpha=None
+                      alpha=None,
                       title="",
                       do_best_fit=False
                       do_best_fit_equation=False
