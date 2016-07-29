@@ -446,7 +446,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 ["1","Simple dots-on-map"],
                 ["2","Compute basic statistics"],
                 ["3","Compute timeseries statistics"],
-                ["4","Compare two datasets"]
+                ["4","Compare two datasets"],
                 ["5","Oversample"]
                 ]
             uid_menu_choice = basic_menu(uid_menu_title,
