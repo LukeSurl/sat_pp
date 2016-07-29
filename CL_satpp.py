@@ -931,7 +931,7 @@ def select_a_var(var_names,vartuple,purpose="",numbers_only=True):
     else:
         menu_title = "Choose data for %s:" %purpose
     var_choice_no = int(basic_menu(menu_title,menu_options,quit_option=False))
-    return(vartuple[var_choice_no],var_names)
+    return(vartuple[var_choice_no],var_names[var_choice_no])
 
 def two_var_comparison(var_names,vartuple):
     (xvar,xvar_name) = select_a_var(var_names,vartuple,
