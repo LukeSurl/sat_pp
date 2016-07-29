@@ -90,7 +90,7 @@ def oversample(var_names,vartuple,lat,lon):
     for i in range(0,fine_points):
         clearscreen()
         print "Processing point %i of %i" %(i,fine_points)
-        this_set = [var[j] for j in range(0,len(var) if 
+        this_set = [var[j] for j in range(0,len(var)) if 
                                      great_circle( (lat[j],lon[j]),
                                                    (lat_fine[i],lon_fine[i])).km
                                      <= averaging_radius ]
