@@ -28,39 +28,15 @@ def oversample(var_names,vartuple,lat,lon):
     #at the edges, we will need to sample points outside these bounds
     #Thus we define sample bounds which are slightly larger
 
-    north_sample = north_view
-    north_OK = False
-    while north_OK == False:
-        print north_sample
-        north_sample += 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        north_OK = float( great_circle((north_view           ,0.5*(east_view+west_view)),
-                                  (north_sample         ,0.5*(east_view+west_view))).km)\
-                                  > averaging_radius*1.2 
+    #we'll assume, for safety, that 1km = 0.01 degrees; a slight overestimation
+    #(even at the equator), but this is useful.
 
-    south_sample = south_view
-    south_OK = False
-    while south_OK == False:
-        south_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        south_OK = float( great_circle((south_view           ,0.5*(east_view+west_view)),
-                                  (south_sample         ,0.5*(east_view+west_view))).km)\
-                                  > averaging_radius*1.2 
-
-    east_sample = east_view
-    east_OK = False
-    while east_OK == False:
-        east_sample += 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        east_OK = float( great_circle((0.5*(north_view+south_view),east_view           ),
-                                 (0.5*(north_view+south_view),east_sample         )).km)\
-                                  > averaging_radius*1.2
-
-
-    west_sample = west_view
-    west_OK = False
-    while west_OK == False:
-        west_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        west_OK = float( great_circle((0.5*(north_view+south_view),west_view           ),
-                                 (0.5*(north_view+south_view),west_sample         )).km)\
-                                  > averaging_radius*1.2    
+    buffer_degrees = 0.01*averaging_radius
+    
+    north_sample = north_view + buffer_degrees
+    south_sample = south_view - buffer_degrees
+    east_sample  = east_view  + buffer_degrees
+    west_sample  = west_view  - buffer_degrees
 
 
     #now use geo_select_rectangle to restrict our datasets to just those in the sampling box
@@ -92,8 +68,18 @@ def oversample(var_names,vartuple,lat,lon):
     for i in range(0,fine_points):
         clearscreen()
         print "Processing point %i of %i" %(i,fine_points)
-        this_set = [var[j] for j in range(0,len(var)) if 
-                                     great_circle( (lat[j],lon[j]),
+        #for each point, first cut down a square area around the central point before doing the
+        #the circle
+        north_square = lat_fine[i] + buffer_degrees
+        south_square = lat_fine[i] - buffer_degrees
+        east_square  = lon_fine[i] + buffer_degrees
+        west_square  = lon_fine[i] - buffer_degrees
+        square=[north_square,south_square,east_square,west_square]
+        
+        (square_lats,square_lons,square_var)=geo_select_rectangle(lat,lon,sqaure,
+                                              lat,lon,var)
+        this_set = [square_var[j] for j in range(0,len(sqaure_var)) if 
+                                     great_circle( (square_lat[j],sqaure_lon[j]),
                                                    (lat_fine[i],lon_fine[i])).km
                                      <= averaging_radius ]
         var_fine.append(np.nanmean(this_set))
@@ -107,13 +93,3 @@ def oversample(var_names,vartuple,lat,lon):
     plot_dots_on_map(lat_fine,lon_fine,var_fine_count,
                      north_view,south_view,east_view,west_view,vmin=0,vmax=np.nanmax(var_fine_count),
                      title="Oversampled plot",lab="data count at location")
-
-
-
-
-
-
-
-
-            
-              
