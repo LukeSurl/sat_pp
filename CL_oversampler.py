@@ -76,10 +76,10 @@ def oversample(var_names,vartuple,lat,lon):
         west_square  = lon_fine[i] - buffer_degrees
         square=[north_square,south_square,east_square,west_square]
         
-        (square_lats,square_lons,square_var)=geo_select_rectangle(lat,lon,sqaure,
+        (square_lats,square_lons,square_var)=geo_select_rectangle(lat,lon,square,
                                               lat,lon,var)
-        this_set = [square_var[j] for j in range(0,len(sqaure_var)) if 
-                                     great_circle( (square_lat[j],sqaure_lon[j]),
+        this_set = [square_var[j] for j in range(0,len(square_var)) if 
+                                     great_circle( (square_lat[j],square_lon[j]),
                                                    (lat_fine[i],lon_fine[i])).km
                                      <= averaging_radius ]
         var_fine.append(np.nanmean(this_set))
