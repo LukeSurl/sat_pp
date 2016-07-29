@@ -655,7 +655,7 @@ def in_box(lat,lon,north,south,east,west):
     
 def geo_select_rectangle(lat,lon,geo_selection,*datasets):
     """Reduces datasets down to only those points within designated bounds"""
-    [northbound,southbound,westbound,eastbound] = geo_selection
+    [northbound,southbound,eastbound,westbound] = geo_selection
     output = []
     for dataset in datasets :
         selected = [dataset [i] for i in range(0,len(dataset)) if in_box(lat[i],lon[i],northbound,southbound,eastbound,westbound) ]
