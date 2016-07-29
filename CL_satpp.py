@@ -1041,8 +1041,8 @@ def error_bar_scatter(x_var,y_var,
                       x_label="",y_label="",
                       alpha=None,
                       title="",
-                      do_best_fit=False
-                      do_best_fit_equation=False
+                      do_best_fit=False,
+                      do_best_fit_equation=False,
                       show=True):
     """Draws a scatter plot of two data sets. Best fit line and error bars optional"""
     
