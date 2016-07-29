@@ -57,8 +57,8 @@ def oversample(var_names,vartuple,lat,lon):
     west_sample = west_view
     west_OK = False
     while west_OK == False:
-        east_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        east_OK = float( great_circle((0.5*(north_view+south_view),west_view           ),
+        west_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
+        west_OK = float( great_circle((0.5*(north_view+south_view),west_view           ),
                                  (0.5*(north_view+south_view),west_sample         )).km)\
                                   > averaging_radius*1.2    
 
