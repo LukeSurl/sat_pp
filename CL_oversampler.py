@@ -2,7 +2,7 @@
 """Utility to "oversample" satellite observations"""
 
 from geopy.distance import great_circle
-from CL_satpp.py import *
+from CL_satpp import *
 import numpy as np
 
 
