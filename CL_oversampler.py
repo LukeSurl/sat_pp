@@ -34,7 +34,7 @@ def oversample(var_names,vartuple,lat,lon):
         print north_sample
         north_sample += 0.1 #move buffer 0.1 deg away each iteration and check if alright
         north_OK = float( great_circle((north_view           ,0.5*(east_view+west_view)),
-                                  (north_sample         ,0.5*(east_view+west_view))).km)
+                                  (north_sample         ,0.5*(east_view+west_view))).km)\
                                   > averaging_radius*1.2 
 
     south_sample = south_view
@@ -42,7 +42,7 @@ def oversample(var_names,vartuple,lat,lon):
     while south_OK == False:
         south_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
         south_OK = float( great_circle((south_view           ,0.5*(east_view+west_view)),
-                                  (south_sample         ,0.5*(east_view+west_view))).km)
+                                  (south_sample         ,0.5*(east_view+west_view))).km)\
                                   > averaging_radius*1.2 
 
     east_sample = east_view
@@ -50,7 +50,7 @@ def oversample(var_names,vartuple,lat,lon):
     while east_OK == False:
         east_sample += 0.1 #move buffer 0.1 deg away each iteration and check if alright
         east_OK = float( great_circle((0.5*(north_view+south_view),east_view           ),
-                                 (0.5*(north_view+south_view),east_sample         )).km)
+                                 (0.5*(north_view+south_view),east_sample         )).km)\
                                   > averaging_radius*1.2
 
 
@@ -59,7 +59,7 @@ def oversample(var_names,vartuple,lat,lon):
     while west_OK == False:
         east_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
         east_OK = float( great_circle((0.5*(north_view+south_view),west_view           ),
-                                 (0.5*(north_view+south_view),west_sample         )).km)
+                                 (0.5*(north_view+south_view),west_sample         )).km)\
                                   > averaging_radius*1.2    
 
 
