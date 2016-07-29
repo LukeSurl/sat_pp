@@ -31,35 +31,36 @@ def oversample(var_names,vartuple,lat,lon):
     north_sample = north_view
     north_OK = False
     while north_OK == False:
+        print north_sample
         north_sample += 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        north_OK = ( great_circle((north_view           ,0.5*(east_view+west_view)),
-                                  (north_sample         ,0.5*(east_view+west_view))).km
-                                  > averaging_radius*1.2 )
+        north_OK = float( great_circle((north_view           ,0.5*(east_view+west_view)),
+                                  (north_sample         ,0.5*(east_view+west_view))).km)
+                                  > averaging_radius*1.2 
 
     south_sample = south_view
     south_OK = False
     while south_OK == False:
         south_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        south_OK = ( great_circle((south_view           ,0.5*(east_view+west_view)),
-                                  (south_sample         ,0.5*(east_view+west_view))).km
-                                  > averaging_radius*1.2 )
+        south_OK = float( great_circle((south_view           ,0.5*(east_view+west_view)),
+                                  (south_sample         ,0.5*(east_view+west_view))).km)
+                                  > averaging_radius*1.2 
 
     east_sample = east_view
     east_OK = False
     while east_OK == False:
         east_sample += 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        east_OK = ( great_circle((0.5*(north_view+south_view),east_view           ),
-                                 (0.5*(north_view+south_view),east_sample         )).km
-                                  > averaging_radius*1.2 )   
+        east_OK = float( great_circle((0.5*(north_view+south_view),east_view           ),
+                                 (0.5*(north_view+south_view),east_sample         )).km)
+                                  > averaging_radius*1.2
 
 
     west_sample = west_view
     west_OK = False
     while west_OK == False:
         east_sample -= 0.1 #move buffer 0.1 deg away each iteration and check if alright
-        east_OK = ( great_circle((0.5*(north_view+south_view),west_view           ),
-                                 (0.5*(north_view+south_view),west_sample         )).km
-                                  > averaging_radius*1.2 )   
+        east_OK = float( great_circle((0.5*(north_view+south_view),west_view           ),
+                                 (0.5*(north_view+south_view),west_sample         )).km)
+                                  > averaging_radius*1.2    
 
 
     #now use geo_select_rectangle to restrict our datasets to just those in the sampling box
