@@ -84,6 +84,7 @@ def oversample(var_names,vartuple,lat,lon):
         lat_step += fine_dim
 
     var_fine=[]
+    var_fine_count=[]
     #Now, for every cell in the ultrafine grid, determine which var are within averaging_distance
     #This will likely take a while
 
@@ -103,7 +104,9 @@ def oversample(var_names,vartuple,lat,lon):
                      north_view,south_view,east_view,west_view,vmin=0.,vmax=3.0E16,
                      title="Oversampled plot",lab=var_name,
                      save=False,save_filename="nofilenamespecified")
-
+    plot_dots_on_map(lat_fine,lon_fine,var_fine_count,
+                     north_view,south_view,east_view,west_view,vmin=0,vmax=np.nanmax(var_fine_count),
+                     title="Oversampled plot",lab="data count at location")
 
 
 
