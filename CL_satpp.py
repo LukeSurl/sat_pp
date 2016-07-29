@@ -1074,7 +1074,7 @@ def error_bar_scatter(x_var,y_var,
         plt.errorbar(x_data, y_data, xerr=x_error, yerr=y_error,
                      alpha=alpha, fmt="o", color='g')   
     
-    if do_best_fit or do_best_fit_equation
+    if do_best_fit or do_best_fit_equation:
         par = np.polyfit(x_data, y_data, 1, full=True)
         slope=par[0][0]
         intercept=par[0][1]
