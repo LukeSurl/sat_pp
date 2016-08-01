@@ -17,7 +17,7 @@ def oversample(var_names,vartuple,lat,lon):
     print "(0.02 degrees recommended)"
     fine_dim = float(raw_input("-->"))
     print "What radius, in km, will the %s observations be spread over?" %var_name
-    print "(24 km recommeneded)"
+    print "(24 km recommended)"
     averaging_radius = float(raw_input("-->"))
     print "Please enter the bounds of the area you wish to inspect"
     north_view = float(raw_input("NORTH-->"))
@@ -86,10 +86,17 @@ def oversample(var_names,vartuple,lat,lon):
         var_fine_count.append(notnancount(this_set))
         del this_set
 
-    plot_dots_on_map(lat_fine,lon_fine,var_fine,
-                     north_view,south_view,east_view,west_view,vmin=0.,vmax=3.0E16,
-                     title="Oversampled plot",lab=var_name,
-                     save=False,save_filename="nofilenamespecified")
-    plot_dots_on_map(lat_fine,lon_fine,var_fine_count,
-                     north_view,south_view,east_view,west_view,vmin=0,vmax=np.nanmax(var_fine_count),
-                     title="Oversampled plot",lab="data count at location")
+    plot_grid_from_list(lat_fine,lon_fine,var_fine,
+                        fine_dim,fine_dim,
+                        north_view,south_view,east_view,west_view,
+                        title="Oversampled plot",vmin=0.0e16,vmax=3.0e16,
+                        lab=var_name,
+                        save=False,save_filename="nofilenamespecified")
+
+    plot_grid_from_list(lat_fine,lon_fine,var_fine_count,
+                        fine_dim,fine_dim,
+                        north_view,south_view,east_view,west_view,
+                        title="Oversampled plot",vmin=0,vmax=np.nanmax(var_fine_count),
+                        lab="data count at location",
+                        save=False,save_filename="nofilenamespecified")
+

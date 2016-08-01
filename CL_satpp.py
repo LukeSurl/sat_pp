@@ -565,8 +565,11 @@ def draw_screen_poly( rec_lats, rec_lons, m, c, color_index ):
     plt.gca().add_patch(poly)
     
 def prepare_map(north,south,east,west):
-    m = Basemap(projection='merc',llcrnrlat=south+1,urcrnrlat=north-1,\
-            llcrnrlon=west+1,urcrnrlon=east-1,lat_ts=(north+south)/2.,resolution='i')
+    
+    m = Basemap(projection='merc',
+            llcrnrlat=south-0.1,urcrnrlat=north+0.1,
+            llcrnrlon=west -0.1,urcrnrlon=east +0.1,
+            lat_ts=(north+south)/2.,resolution='i')
     
     #get appropriate grid line spacing for this map
     min_dimension = min(north-south,east-west)
@@ -1099,3 +1102,6 @@ def error_bar_scatter(x_var,y_var,
     if show:
         plt.show()
 
+
+def load_emfile():
+    """Loads up the """
