@@ -16,11 +16,17 @@ import os
 from geopy.distance import great_circle
 import scipy.stats as scistats
 from numbers import Number
+from os import listdir
+from os.path import isfile, join
 
 def clearscreen():
     """Clears the screen. Checks the OS to deliver the correct command"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
+
+def clear_screen()
+    """Runs clearscreen()"""
+    clearscreen()
 
 def basic_menu(title,menu_options,quit_option=True):
     """Loads a basic menu to screen and returns the output"""
@@ -951,7 +957,7 @@ def two_var_comparison(var_names,vartuple):
                                         quit_option=True)
                                         
         #if 3 or 4, will need to define errors on one or both datasets.
-        if type_of_comparison in [3,4]:
+        if type_of_comparison in ["3","4"]:
             [error_x_option,error_y_option] = ["",""]
             while "Z" not in [error_x_option,error_y_option]:
                 
@@ -1015,10 +1021,15 @@ def two_var_comparison(var_names,vartuple):
                 elif error_y_option == "4":
                     (_,yvar_errs) = select_a_var(var_names,vartuple,
                                                  "errors in independant (y-axis) variable",
-                                                 numbers_only=True)                 
+                                                 numbers_only=True)
+                #if we've got this far we can leave the while loop
+                break                 
                                         
         if type_of_comparison == "1":
-            scatter_setup(xvar,yvar,xvar_name,yvar_name)
+            error_bar_scatter(xvar,yvar,
+                              x_error=None,y_error=None,
+                              title="Scatter plot",
+                              x_label=xvar_name,y_label=yvar_name)
         elif type_of_comparison == "2":
             print "Linear regression:"
             slope, intercept, r_value, p_value, std_err = scistats.linregress(xvar,yvar)
@@ -1031,8 +1042,10 @@ def two_var_comparison(var_names,vartuple):
             print "Pearson's correlation coefficient:\n %f, 2-tailed p-value: %f" %(pearsonr[0],pearsonr[1])
             polyfit = np.polyfit(xvar, yvar, 1)
         elif type_of_comparison == "3":
-            #scatter plot with error bars.
-            pass
+            error_bar_scatter(xvar,yvar,
+                  x_error=xvar_errs,y_error=yvar_errs,
+                  title="Error bar plot",
+                  x_label=xvar_name,y_label=yvar_name)
         elif type_of_comparison == "4":
             #WYIBF analysis
             pass
@@ -1103,5 +1116,77 @@ def error_bar_scatter(x_var,y_var,
         plt.show()
 
 
-def load_emfile():
-    """Loads up the """
+def load_emfile(emfiles_folder,file_tag="trac_avg"):
+    """Loads up emissions from one or several files"""
+      
+    #make sure provided folder string ends with a slash
+    if not emfiles_folder.endswith("/"):
+        emfiles_folder = emfiles_folder + "/"
+        
+    print "Will search for files in %"%emfiles_folder    
+        
+    files_in_folder = [f for f in listdir(emfiles_folder) if isfile(join(emfiles_folder, f))]
+    #filter this list down to just trac_avg files.
+    files_in_folder = [f for f in file_in_folder if f.startswith(emfiles_folder + "trac_avg")]
+    
+    option = ""
+    while option != "G":
+        clear_screen()
+        print "Indentifed the following geos_chem output files:"
+        number_options = []
+        for i in range(0,len(files_in_folder)):
+            print "[%i] %s" %(i,files_in_folder[i])
+            number_options.append(
+        print "To remove a file from this list, type X then its number (i.e. X0)"
+        print "To process only one file from this list, type Y then its number (i.e. Y0)"
+        print "If you are happy with this list, type G"
+        option = raw_input("-->").upper()
+        if option == "G":
+            pass
+        elif option.beginswith("X"):
+            #excising a file from the list
+            option_int = int(option[1:]
+            del files_in_folder[option_int]
+        elif option.beginswith("Y"):
+            option_int = int(option[1:]
+            files_in_folder = [files_in_folder[option_int][
+            option = "G" #function will proceed
+    
+    #Quite often these bpch files cannot be opened. What we'll do is try to load each
+    #and see what works
+    good_files = []
+    for bpch_filename in files_in_folder:
+        print "Attempting to open %s" %bpch_filename
+        try:
+            this_bpch = bpch(bpch_filename)
+            good_files.append(bpch_filename)
+        except:
+            print "Error opening %s. This file will be ignored" %bpch_filename
+    
+    print "Found %i valid bpch files" %len(good_files)
+    if good_files = []:
+        #if there are no valid bpch files
+        return() #leave the function.
+
+    #Now, inspect the first file in the list to get dimensions and variables.
+    f = good_files[0]
+    variables_list = list(f.variables)
+    num_variables = len(variables_list)
+    using_variables_list = []
+    done = False
+    while done == False:
+        clearscreen()
+        print "There are %i different variables in the GEOS Chem output"
+        print "Write the name of a variable to add it to the list of variables to read"
+        print "To see the entire list of variables, write 'V'"
+        print "To see the different groups of variables, write 'G'"
+        print "To see a list of all variables within a group, write the group name followed by *"
+        print "You have currently chosen the following variables:"
+        print using_variables_list
+        print "Latitude, longitude variables will be used automatically"
+        print "Once this list is complete, type 'Y' to proceed"
+            
+
+    
+    
+    
