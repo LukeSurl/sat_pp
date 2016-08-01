@@ -1176,15 +1176,47 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
     done = False
     while done == False:
         clearscreen()
-        print "There are %i different variables in the GEOS Chem output"
+        print "There are %i different variables in the GEOS Chem output" %num_variables
         print "Write the name of a variable to add it to the list of variables to read"
         print "To see the entire list of variables, write 'V'"
         print "To see the different groups of variables, write 'G'"
         print "To see a list of all variables within a group, write the group name followed by *"
         print "You have currently chosen the following variables:"
         print using_variables_list
-        print "Latitude, longitude variables will be used automatically"
+        print "Latitude, longitude and time variables will be used automatically"
         print "Once this list is complete, type 'Y' to proceed"
+        option = raw_input("-->").upper()
+        if   option == "V":
+            for variable in variables_list:
+                print variable
+            raw_input("Press enter to continue-->")
+        elif option == "G":
+            groups = list(f.groups)
+            for group in groups:
+                print group
+            raw_input("Press enter to continue-->")
+        elif option.endswith("*"):
+            group_variables_list = [variables_list[i] for i in range(0,num_variables) if variables_list[i].beginswith(option[:1])]
+            if group_variables_list = []:
+                print "This is not a valid group"
+            else:
+                for variable in group_variables_list:
+                    print variable
+            raw_input("Press enter to continue-->")
+        elif option == "Y":
+            done = True
+        else: #if adding a variable
+            if option in variables_list:
+                using_variables_list.append(option)
+            else:
+                print "%s is not a valid variable" %option
+                raw_input("Press enter to continue-->")
+    
+    #now to process this list
+    if using_variables_list = []:
+        print "No variables chosen"
+        raw_input("Press enter to continue-->")
+        return()
             
 
     
