@@ -58,17 +58,14 @@ enddate   = dt(2014,12,31,23,59,59)
 type_geo_select = "latlon"
 geo_selection = [north,south,east,west]        
 current_pickle = "NONE SELECTED"
-current_emfiles = ["NONE SELECTED","NONE SELECTED"]   
+current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014/"   
 
 if initial_choice == "1":
     print "Loading default options"       
     current_pickle =   '/group_workspaces/jasmin/geoschem/'\
                        'local_users/lsurl/sat_pp/'\
                        '20140301-20141231'
-    current_emfiles = ['/group_workspaces/jasmin/geoschem'\
-                       '/local_users/lsurl/runs' \
-                       '/geosfp_025x03125_nochem_2014/',
-                       '_20140301-20141231']
+    current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     (indv_data_all,binn_data_all) = \
         load_new_pickles_all(current_pickle,verbose=True,NDVI=False)
     #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
@@ -91,8 +88,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
 
     top_level_menu_title = "TOP LEVEL MENU\n" \
                "Current pickles loaded: %s\n" \
-               "Current emissions files are: %sXXX%s" \
-               %(current_pickle,current_emfiles[0],current_emfiles[1])
+               "Current GEOS chem directory: %s" \
+               %(current_pickle,current_geosfolder)
     top_level_menu_text = [
             ["1","Use binned data"],
             ["2","Use individual observations data"],
@@ -101,7 +98,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
             ["R","Reload pickle"],
-            ["E","Change current emissions files"],   
+            ["E","Change GEOS Chem directory"],
+            ["G","Load GEOS Chem data"],   
             ["X","Inspect and change global options"]
         ]
     top_level_menu_choice = basic_menu(top_level_menu_title,
@@ -128,8 +126,11 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
         
     elif top_level_menu_choice == "E": #change emissions
-        (changed,current_emfiles) = change_emfiles(current_emfiles)
+        (changed,current_geosfolder) = change_emfiles(current_geosfolder)
         #currently no loading of the emisisons files are done here
+    
+    elif top_level_menu_choice == "G":
+        geos_dict = load_emfile(current_geosfolder,file_tag="trac_avg")
     
     elif top_level_menu_choice == "X": #change options
         datesbefore = (startdate,enddate)

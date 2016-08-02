@@ -18,13 +18,15 @@ import scipy.stats as scistats
 from numbers import Number
 from os import listdir
 from os.path import isfile, join
+import sys
+from bpch import bpch
 
 def clearscreen():
     """Clears the screen. Checks the OS to deliver the correct command"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
-def clear_screen()
+def clear_screen():
     """Runs clearscreen()"""
     clearscreen()
 
@@ -402,14 +404,14 @@ def change_pickle(current_pickle):
     
 def change_emfiles(current_emfiles):
     os.system('clear')
-    print "Currently, pickles with prefix %s are loaded."
-    print "To change this, enter a new prefix."
+    print "Currently, pickles from folder %s are loaded."%current_emfiles
+    print "To change this, enter a new folder."
     print "Otherwise, enter Z to keep current option and return to top menu"
     choice = raw_input("-->")
     if choice == "Z" or choice == "z":
         changed = False
     else:
-        current_pickle = choice
+        current_emfiles = choice
         changed = True
     return(changed,current_emfiles)
     
@@ -1116,40 +1118,74 @@ def error_bar_scatter(x_var,y_var,
         plt.show()
 
 
+class geos_data():
+    """A class for objects of data imported from geos chem output"""
+    
+    def __init__(self):
+       self.data = [] #the data
+       self.time = [] #time of each block of data
+       self.lat = [] #the latitudes
+       self.lon = [] #the longitudes
+       
+       
+    def add_data(self, new_data, new_time):
+        self.data.append(new_data)
+        self.time.append(new_time)
+    
+    def set_name(self, name): #to name the dataset (name in geos output)
+        self.name = name
+        
+    def set_human_name(self, human_name): #to name the dataset (human name)
+        self.human_name = human_name
+        
+    def set_unit(self, unit): #to set a unit for the dataset
+        self.unit = unit
+        
+    def set_lat_lon(self,lat,lon): #to set latitudes and longitudes
+        self.lat = lat
+        self.lon = lon
+
 def load_emfile(emfiles_folder,file_tag="trac_avg"):
     """Loads up emissions from one or several files"""
+    
+    export_dict = {} #eventually we'll populate this dictionary and return it
       
     #make sure provided folder string ends with a slash
     if not emfiles_folder.endswith("/"):
         emfiles_folder = emfiles_folder + "/"
         
-    print "Will search for files in %"%emfiles_folder    
+    print "Will search for files in %s"%emfiles_folder    
         
     files_in_folder = [f for f in listdir(emfiles_folder) if isfile(join(emfiles_folder, f))]
+    #print files_in_folder
     #filter this list down to just trac_avg files.
-    files_in_folder = [f for f in file_in_folder if f.startswith(emfiles_folder + "trac_avg")]
+    files_in_folder = [f for f in files_in_folder if f.startswith(file_tag)]
+    
+    #add path to filenames
+    for i in range(0,len(files_in_folder)):
+        files_in_folder[i] = emfiles_folder + files_in_folder[i]
     
     option = ""
     while option != "G":
-        clear_screen()
+        #clear_screen()
         print "Indentifed the following geos_chem output files:"
         number_options = []
         for i in range(0,len(files_in_folder)):
             print "[%i] %s" %(i,files_in_folder[i])
-            number_options.append(
+            number_options.append(i)
         print "To remove a file from this list, type X then its number (i.e. X0)"
         print "To process only one file from this list, type Y then its number (i.e. Y0)"
         print "If you are happy with this list, type G"
         option = raw_input("-->").upper()
         if option == "G":
             pass
-        elif option.beginswith("X"):
+        elif option.startswith("X"):
             #excising a file from the list
-            option_int = int(option[1:]
+            option_int = int(option[1:])
             del files_in_folder[option_int]
-        elif option.beginswith("Y"):
-            option_int = int(option[1:]
-            files_in_folder = [files_in_folder[option_int][
+        elif option.startswith("Y"):
+            option_int = int(option[1:])
+            files_in_folder = [files_in_folder[option_int]]
             option = "G" #function will proceed
     
     #Quite often these bpch files cannot be opened. What we'll do is try to load each
@@ -1157,20 +1193,27 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
     good_files = []
     for bpch_filename in files_in_folder:
         print "Attempting to open %s" %bpch_filename
+        
         try:
             this_bpch = bpch(bpch_filename)
             good_files.append(bpch_filename)
         except:
+            print("Unexpected error:", sys.exc_info()[0])
             print "Error opening %s. This file will be ignored" %bpch_filename
     
     print "Found %i valid bpch files" %len(good_files)
-    if good_files = []:
+    
+    raw_input("Press enter to proceed-->")
+    
+    if good_files == []:
         #if there are no valid bpch files
-        return() #leave the function.
+        return(export_dict) #leave the function with empty dictionary.
 
     #Now, inspect the first file in the list to get dimensions and variables.
-    f = good_files[0]
+    
+    f = bpch(good_files[0])    
     variables_list = list(f.variables)
+    
     num_variables = len(variables_list)
     using_variables_list = []
     done = False
@@ -1180,9 +1223,10 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
         print "Write the name of a variable to add it to the list of variables to read"
         print "To see the entire list of variables, write 'V'"
         print "To see the different groups of variables, write 'G'"
-        print "To see a list of all variables within a group, write the group name followed by *"
+        print "To see a list of all variables within a group, write the group name followed by a *"
         print "You have currently chosen the following variables:"
         print using_variables_list
+        print "To clear this list, type 'C'"
         print "Latitude, longitude and time variables will be used automatically"
         print "Once this list is complete, type 'Y' to proceed"
         option = raw_input("-->").upper()
@@ -1196,8 +1240,8 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
                 print group
             raw_input("Press enter to continue-->")
         elif option.endswith("*"):
-            group_variables_list = [variables_list[i] for i in range(0,num_variables) if variables_list[i].beginswith(option[:1])]
-            if group_variables_list = []:
+            group_variables_list = [variables_list[i] for i in range(0,num_variables) if variables_list[i].startswith(option[:1])]
+            if group_variables_list == []:
                 print "This is not a valid group"
             else:
                 for variable in group_variables_list:
@@ -1205,6 +1249,8 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
             raw_input("Press enter to continue-->")
         elif option == "Y":
             done = True
+        elif option == "C":
+            using_variables_list = []
         else: #if adding a variable
             if option in variables_list:
                 using_variables_list.append(option)
@@ -1212,11 +1258,65 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
                 print "%s is not a valid variable" %option
                 raw_input("Press enter to continue-->")
     
+    del f
+    
     #now to process this list
-    if using_variables_list = []:
+    
+    #if the user hasn't chosen any variables
+    if using_variables_list == []:
         print "No variables chosen"
         raw_input("Press enter to continue-->")
-        return()
+        return(export_dict)
+    
+    #initialise the dataset holders and assign name
+    geos_datasets = []
+    i = 0
+    for variable in using_variables_list:
+        geos_datasets.append(geos_data())
+        geos_datasets[i].name = variable #set machine name of variables
+        #prompt the user for "human name"
+        print "Please enter a short 'human readable' name for the variable %s" %variable
+        geos_datasets[i].human_name = raw_input("-->")
+        i += 1
+    del i
+        
+    
+    #Right, now let's get onto the serious stuff
+    for this_file in good_files: #access each file in turn
+        print "Accessing %s" %this_file
+        f = bpch(this_file)
+        time = list(f.variables['time'])
+        lat = list(f.variables['latitude'])
+        lon = list(f.variables['longitude'])
+        num_times = len(time)
+        print "There are %i different times recorded in this file" %num_times
+        for geos_dataset in geos_datasets: 
+            this_name = geos_dataset.name
+            print "Reading variable %s" %this_name
+            this_data = f.variables[this_name]
+            
+            #set units and lat/lon
+            #we might end up setting these multiple times but
+            #that's not a problem big deal
+            geos_dataset.unit = this_data.units
+            geos_dataset.set_lat_lon(lat,lon)
+            
+            if len(this_data[0]) != 1: #if there is vertical information
+                print "For this 3D variable, only lowest layer information will be read"
+            else:
+                print "Variable is 2D"
+            for t in range(0,num_times):                
+                geos_dataset.add_data(this_data[t][0],time[t])
+    
+    print "Reading geos_chem variables done"
+    #OK. let's turn this into a dictionary
+    
+    print "Dataset created with the following variables:" 
+    for geos_dataset in geos_datasets:
+        print geos_dataset.human_name
+        export_dict[geos_dataset.human_name] = geos_dataset
+        
+    return(export_dict)
             
 
     
