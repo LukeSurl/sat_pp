@@ -739,7 +739,8 @@ def time_select(startdate,enddate,time,*datasets):
     
 def time_cycle(startdate,enddate,step_days,time,dataset,statistic):
     alpha = float(raw_input("alpha value -->"))
-    time_scatter(time,dataset,alpha=alpha)
+    
+    #time_scatter(time,dataset,alpha=alpha)
     
     clocklow = startdate
     stat_collection = []
@@ -753,6 +754,7 @@ def time_cycle(startdate,enddate,step_days,time,dataset,statistic):
         time_collection.append(central_time)
         clocklow = clockhigh
     
+    #plot these averages
     time_scatter(time_collection,stat_collection,alpha=1.0)
     
     return(stat_collection,time_collection)
