@@ -1143,9 +1143,11 @@ class geos_data():
         
     def set_lat_lon(self,lat,lon): #to set latitudes and longitudes
         self.lat = lat
+        self.lat_spacing = abs(lat[1]-lat[0])
         self.lon = lon
+        self.lon_spacing = abs(lon[1]-lon[0])
 
-def load_emfile(emfiles_folder,file_tag="trac_avg"):
+def load_geosfile(emfiles_folder,file_tag="trac_avg"):
     """Loads up emissions from one or several files"""
     
     export_dict = {} #eventually we'll populate this dictionary and return it
@@ -1240,7 +1242,7 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
                 print group
             raw_input("Press enter to continue-->")
         elif option.endswith("*"):
-            group_variables_list = [variables_list[i] for i in range(0,num_variables) if variables_list[i].startswith(option[:1])]
+            group_variables_list = [variables_list[i] for i in range(0,num_variables) if variables_list[i].startswith(option[:(len(option)-1)])]
             if group_variables_list == []:
                 print "This is not a valid group"
             else:
@@ -1332,7 +1334,7 @@ def tau_to_datetime(tau_time):
     hours_to_add = td(hours=tau_time)
     return(datum+hours_to_add)
 
-def straigten_geos(geos_chem_var,time_option):
+def straighten_geos(geos_chem_var,time_option):
     """Converts GEOS Chem variable into 1D lists"""
     lat = geos_chem_var.lat
     lenlat = len(lat)
@@ -1356,11 +1358,19 @@ def straigten_geos(geos_chem_var,time_option):
 def plot_geos_chem(geos_chem_var_dict):
     """Plots GEOS Chem data using plt_grid_from_list"""
     clearscreen()
-    print "Enter human name of GEOS Chem var to plot"
-    name_choice = raw_input("-->") 
-    
-    #need catch here not to crash if not in dictionary
-    geos_chem_var = geos_chem_var_dict[name_choice]
+    valid_input = False
+    while valid_input == False:
+        
+        print "Enter human name of GEOS Chem var to plot"
+        print "The following datasets are saved:"
+        for key in geos_chem_var_dict.keys():
+            print key
+        name_choice = raw_input("-->") 
+        try:
+            geos_chem_var = geos_chem_var_dict[name_choice]
+            valid_input = True
+        except(KeyError): #if not a valid key option
+            print "%s is not a currently saved GEOS Chem dataset" %name_choice
     
     clearscreen()
     print "Preparing to plot GEOS Chem variable %s" %geos_chem_var.human_name
@@ -1375,12 +1385,13 @@ def plot_geos_chem(geos_chem_var_dict):
     else:
         time_choice = 0
     
-    (lat1D,lon1D,data1D) = straigten_geos(geos_chem_var,time_choice)
+       
+    (lat1D,lon1D,data1D) = straighten_geos(geos_chem_var,time_choice)
     
     title_for_plot = geos_chem_var.human_name + " at " + str(geos_chem_var.time[time_choice])
     
     plot_grid_from_list(lat1D,lon1D,data1D,
-                        0.3125,0.25,
+                        geos_chem_var.lon_spacing,geos_chem_var.lat_spacing,
                         max(lat1D),min(lat1D),max(lon1D),min(lon1D),
                         title=geos_chem_var.human_name,
                         vmin=min(data1D),vmax=max(data1D),

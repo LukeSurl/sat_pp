@@ -99,7 +99,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["P","Change pickle"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
-            ["G","Load GEOS Chem data"],
+            ["G","Load GEOS Chem trac_avg data"],
+            ["T","Load GOES Chem ND51 data"],
             ["K","Plot GOES Chem data"],   
             ["X","Inspect and change global options"]
         ]
@@ -131,7 +132,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         #currently no loading of the emisisons files are done here
     
     elif top_level_menu_choice == "G": #load geos chem data
-        geos_dict = load_emfile(current_geosfolder,file_tag="trac_avg")
+        geos_dict = load_geosfile(current_geosfolder,file_tag="trac_avg")
+    
+    elif top_level_menu_choice == "T": #load psuedo-satellite data
+        geos_dict = load_geosfile(current_geosfolder,file_tag="ts_")
     
     elif top_level_menu_choice == "K": #plot geos chem data
         plot_geos_chem(geos_dict)
