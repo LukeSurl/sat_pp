@@ -21,6 +21,49 @@ from os.path import isfile, join
 import sys
 from bpch import bpch
 
+class obs():
+    """A class for a single satellite observation"""
+    
+    def ___init___(self,lat,lon,time):
+        self.lat = lat
+        self.lon = lon
+        self.time = time
+        self.data = {}
+        
+    def add_data(self,name,value):
+        self.data.update({name:value})
+    
+class geos_data():
+    """A class for objects of data imported from geos chem output"""
+    
+    def __init__(self):
+       self.data = [] #the data
+       self.time = [] #time of each block of data
+       self.lat = [] #the latitudes
+       self.lon = [] #the longitudes
+       
+       
+    def add_data(self, new_data, new_time):
+        self.data.append(new_data)
+        self.time.append(new_time)
+    
+    def set_name(self, name): #to name the dataset (name in geos output)
+        self.name = name
+        
+    def set_human_name(self, human_name): #to name the dataset (human name)
+        self.human_name = human_name
+        
+    def set_unit(self, unit): #to set a unit for the dataset
+        self.unit = unit
+        
+    def set_lat_lon(self,lat,lon): #to set latitudes and longitudes
+        self.lat = lat
+        self.lat_spacing = abs(lat[1]-lat[0])
+        self.lon = lon
+        self.lon_spacing = abs(lon[1]-lon[0])
+    
+
+
 def clearscreen():
     """Clears the screen. Checks the OS to deliver the correct command"""
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -244,34 +287,33 @@ def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,units="molec.cm-2"
     if title == "":
         title = dataset_name
     save_filename = title + ".png"
-    while not(choice.upper() in ["P","S","Z"]): #menu-leaving options
-        while not(choice.upper() in ["T","C","U","P","S","Z"]):
-            os.system('clear')
-            print "Preparing to map data"
-            print "Dataset to plot  = " + dataset_name
-            print "Title for figure = " + title
-            print "Colourbar minimum = " + str(vmin)
-            print "Colourbar maximum = " + str(vmax)
-            print "Units text        = " + units
-            print "OPTIONS:"
-            print "[T] Change title"
-            print "[C] Change colourbar min/max"
-            print "[U] Change units text"
-            print "[P] Plot figure on screen"
-            print "[S] Save figure."
-            print "[Z] Return to previous menu"
-            choice = raw_input("-->")
-            if choice.upper() == "T":
-                title = change_var(title,"Figure title")
-            elif choice.upper() == "C":
-                vmin = change_var(vmin,"Colourbar minimum")
-                vmax = change_var(vmax,"Colourbar maximum")
-            elif choice.upper() == "U":
-                units = change_var(units,"Units text")
-            
-            if choice.upper() == "S":
-                save_filename = title + ".png"
-                save_filename = change_var(save_filename,"Image filename to save (include extension)")
+    while not(choice.upper() in ["P","S","Z"]): #menu-leaving options       
+        os.system('clear')
+        print "Preparing to map data"
+        print "Dataset to plot  = " + dataset_name
+        print "Title for figure = " + title
+        print "Colourbar minimum = " + str(vmin)
+        print "Colourbar maximum = " + str(vmax)
+        print "Units text        = " + units
+        print "OPTIONS:"
+        print "[T] Change title"
+        print "[C] Change colourbar min/max"
+        print "[U] Change units text"
+        print "[P] Plot figure on screen"
+        print "[S] Save figure."
+        print "[Z] Return to previous menu"
+        choice = raw_input("-->")
+        if choice.upper() == "T":
+            title = change_var(title,"Figure title")
+        elif choice.upper() == "C":
+            vmin = change_var(vmin,"Colourbar minimum")
+            vmax = change_var(vmax,"Colourbar maximum")
+        elif choice.upper() == "U":
+            units = change_var(units,"Units text")
+        
+        if choice.upper() == "S":
+            save_filename = title + ".png"
+            save_filename = change_var(save_filename,"Image filename to save (include extension)")
     return(choice.upper(),title,vmin,vmax,units,save_filename)
     
 def geo_select_menu(type_geo_select,geo_selection):
@@ -711,6 +753,8 @@ def time_cycle(startdate,enddate,step_days,time,dataset,statistic):
         time_collection.append(central_time)
         clocklow = clockhigh
     
+    time_scatter(time_collection,stat_collection,alpha=1.0)
+    
     return(stat_collection,time_collection)
 
 def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha=0.2):
@@ -1118,34 +1162,6 @@ def error_bar_scatter(x_var,y_var,
         plt.show()
 
 
-class geos_data():
-    """A class for objects of data imported from geos chem output"""
-    
-    def __init__(self):
-       self.data = [] #the data
-       self.time = [] #time of each block of data
-       self.lat = [] #the latitudes
-       self.lon = [] #the longitudes
-       
-       
-    def add_data(self, new_data, new_time):
-        self.data.append(new_data)
-        self.time.append(new_time)
-    
-    def set_name(self, name): #to name the dataset (name in geos output)
-        self.name = name
-        
-    def set_human_name(self, human_name): #to name the dataset (human name)
-        self.human_name = human_name
-        
-    def set_unit(self, unit): #to set a unit for the dataset
-        self.unit = unit
-        
-    def set_lat_lon(self,lat,lon): #to set latitudes and longitudes
-        self.lat = lat
-        self.lat_spacing = abs(lat[1]-lat[0])
-        self.lon = lon
-        self.lon_spacing = abs(lon[1]-lon[0])
 
 def load_geosfile(emfiles_folder,file_tag="trac_avg"):
     """Loads up emissions from one or several files"""

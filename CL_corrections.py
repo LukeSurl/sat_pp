@@ -52,6 +52,9 @@ def load_filtered_main(data_folder,startdate,enddate):
     print "First: %s" %list_of_files[0]
     print "Last : %s" %list_of_files[len(list_of_files)-1]
 
+    #filtered_dataset will be a list containing an obs object for each point
+    filtered_dataset = []
+    
     #now build arrays for all of the data in range.    
     ULN     = [] #unique line number
     lat     = [] #latitude
@@ -71,6 +74,12 @@ def load_filtered_main(data_folder,startdate,enddate):
                 continue
             if math.isnan(float(columns[4])): #kick out datapoint if GEOS_VC is NaN
                 continue
+                
+            this_lat = float(columns[2])
+            this_lon = float(columns[3])
+            this_time= float(columns[1])
+            
+                
             ULN.append(int(columns[0]))    
             lat.append(float(columns[2]))
             lon.append(float(columns[3]))
