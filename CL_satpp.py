@@ -1285,10 +1285,16 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
     for this_file in good_files: #access each file in turn
         print "Accessing %s" %this_file
         f = bpch(this_file)
-        time = list(f.variables['time'])
+        tau_time = list(f.variables['time'])
         lat = list(f.variables['latitude'])
         lon = list(f.variables['longitude'])
-        num_times = len(time)
+        num_times = len(tau_time)
+        
+        #convert times to datetime
+        time = []
+        for i in range(0,len(tau_time)):
+            time.append(tau_to_datetime(tau_time[i]))
+        
         print "There are %i different times recorded in this file" %num_times
         for geos_dataset in geos_datasets: 
             this_name = geos_dataset.name
@@ -1317,8 +1323,69 @@ def load_emfile(emfiles_folder,file_tag="trac_avg"):
         export_dict[geos_dataset.human_name] = geos_dataset
         
     return(export_dict)
-            
 
+def tau_to_datetime(tau_time):
+    """Converts time from the TAU used in GEOS_Chem files to datetime"""
     
+    #TAU is count of hours since 1985-01-01 00:00:00
+    datum = dt(1985,01,01,0,0,0)
+    hours_to_add = td(hours=tau_time)
+    return(datum+hours_to_add)
+
+def straigten_geos(geos_chem_var,time_option):
+    """Converts GEOS Chem variable into 1D lists"""
+    lat = geos_chem_var.lat
+    lenlat = len(lat)
+    lat1D = []
+    
+    lon = geos_chem_var.lon
+    lenlon = len(lon)
+    lon1D = []
+    
+    data = geos_chem_var.data[time_option]
+    data1D = []
+    for j in range(0,lenlat):
+        for i in range(0,lenlon):
+            data1D.append(data[j,i])
+            lat1D.append(lat[j])
+            lon1D.append(lon[i])
+    
+    return(lat1D,lon1D,data1D)
+
+            
+def plot_geos_chem(geos_chem_var_dict):
+    """Plots GEOS Chem data using plt_grid_from_list"""
+    clearscreen()
+    print "Enter human name of GEOS Chem var to plot"
+    name_choice = raw_input("-->") 
+    
+    #need catch here not to crash if not in dictionary
+    geos_chem_var = geos_chem_var_dict[name_choice]
+    
+    clearscreen()
+    print "Preparing to plot GEOS Chem variable %s" %geos_chem_var.human_name
+    
+    #if there is more than one valid time, ask the user to select one
+    if len(geos_chem_var.time) > 1:
+        print "Select a time to plot"
+        i = 0
+        for i in range(0,len(geos_chem_var.time)):
+            print "[%i] %s" %(i,str(geos_chem_var.time[i]))
+        time_choice = int(raw_input("-->"))
+    else:
+        time_choice = 0
+    
+    (lat1D,lon1D,data1D) = straigten_geos(geos_chem_var,time_choice)
+    
+    title_for_plot = geos_chem_var.human_name + " at " + str(geos_chem_var.time[time_choice])
+    
+    plot_grid_from_list(lat1D,lon1D,data1D,
+                        0.3125,0.25,
+                        max(lat1D),min(lat1D),max(lon1D),min(lon1D),
+                        title=geos_chem_var.human_name,
+                        vmin=min(data1D),vmax=max(data1D),
+                        lab=geos_chem_var.unit,
+                        save=False,save_filename="nofilenamespecified")
+      
     
     
