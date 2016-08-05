@@ -46,17 +46,27 @@ corrections_folder= \
     "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/corrections/"
 corr_type="basic"
 country_statefile="/home/users/lsurl/CL/country_state.csv"    
-south = 2.
-north = 38.
-west = 65.
-east = 100.
-compass = [north,south,east,west]
+#south = 2.
+#north = 38.
+#west = 65.
+#east = 100.
+#compass = [north,south,east,west]
+
+map_box = box(38., #north
+              2.,  #south
+              100.,#east
+              65.) #west
+
 xdim = 0.3125
 ydim = 0.25
 startdate = dt(2014,03,01, 0, 0, 0)
 enddate   = dt(2014,12,31,23,59,59)
 type_geo_select = "latlon"
-geo_selection = [north,south,east,west]        
+geo_selection = box(38., #north
+                    2.,  #south
+                    100.,#east
+                    65.) #west
+                           
 current_pickle = "NONE SELECTED"
 current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014/"   
 
@@ -142,10 +152,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     
     elif top_level_menu_choice == "X": #change options
         datesbefore = (startdate,enddate)
-        (north,south,east,west,
+        (map_box,
          xdim,ydim,
          startdate,enddate) = global_options(
-                             north,south,east,west,
+                             map_box,
                              xdim,ydim,
                              startdate,enddate)
         #if time selection has changed, reselect data.
@@ -312,7 +322,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                  sat_DVC_mean_binned,
                  geos_VC_mean_binned,geos_VC_stdev_binned) = \
                  create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,
-                                   north,south,east,west,xdim,ydim)
+                                   map_box,xdim,ydim)
                 dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
                 #NDVI should be coded in at this point
                 
@@ -422,9 +432,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     if binned_map_menu_choice != "Z" :                                               
                         #At this point binned_map_preplot_menu_choice will be either Z (up menu), P (plot) or S (save)                    
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
-                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,north,south,east,west,title=title,vmin=vmin,vmax=vmax,lab=units,save=True,save_filename=save_filename)
+                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,map_box,title=title,vmin=vmin,vmax=vmax,lab=units,save=True,save_filename=save_filename)
                         elif map_preplot_menu_choice.upper() == "P": #plotting the figure
-                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,north,south,east,west,title=title,vmin=vmin,vmax=vmax,lab=units,save=False)
+                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,map_box,title=title,vmin=vmin,vmax=vmax,lab=units,save=False)
                         else: #no plot
                             pass
             elif ubd_menu_choice == "2": #statisics
@@ -491,9 +501,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     if dom_menu_choice != "Z" :                                               
                         #At this point map_preplot_menu_choice will be either Z (up menu), P (plot) or S (save)                    
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
-                            plot_dots_on_map(lat,lon,dataset,north,south,east,west,vmin=vmin,vmax=vmax,title=title,lab=units,save=True,save_filename=save_filename)
+                            plot_dots_on_map(lat,lon,dataset,map_box,vmin=vmin,vmax=vmax,title=title,lab=units,save=True,save_filename=save_filename)
                         elif map_preplot_menu_choice.upper() == "P": #plotting the figure
-                            plot_dots_on_map(lat,lon,dataset,north,south,east,west,vmin=vmin,vmax=vmax,title=title,lab=units,save=False)
+                            plot_dots_on_map(lat,lon,dataset,map_box,vmin=vmin,vmax=vmax,title=title,lab=units,save=False)
                         else: #no plot
                             pass     
             elif uid_menu_choice == "2": #statisics

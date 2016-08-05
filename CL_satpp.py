@@ -55,10 +55,31 @@ class box:
         if n>s and e>w:
             return True
         else:
+            print "Not a valid spatial extent"
             return False
+    
+    def in_box(self,lat_test,lon_test):
+        """Checks if lat lon pair are in the box"""
+        if type(lat_test) == list:
+            #if we have lists, get a corresponding list output.
+            output = []
+            for i in range(0,len(lat_test)):
+                if self.s <= lat_test <= self.n and \
+                       self.w <= lat_test <= self.e:
+                    output.append(True)
+                else:
+                    output.append(False)
+            return(output)
+        else: #if scalar
+            if self.s <= lat_test <= self.n and \
+                   self.w <= lat_test <= self.e:
+                return(True)
+            else:
+                return(False)   
 
 class obs():
     """A class for a single satellite observation"""
+    #this class is currenly unused
     
     def ___init___(self,lat,lon,time):
         self.lat = lat
@@ -388,12 +409,16 @@ def geo_select_menu(type_geo_select,geo_selection):
         print "[Z] Return to previous menu"
         choice = raw_input("-->").upper()
         if choice == "1":
-            type_geo_select = "latlon"
-            new_north = float(raw_input("Enter lat for N boundary (N +ve, S -ve) -->"))
-            new_south = float(raw_input("Enter lat for S boundary (N +ve, S -ve) -->"))
-            new_west  = float(raw_input("Enter lon for W boundary (E +ve, W -ve) -->"))
-            new_east  = float(raw_input("Enter lon for E boundart (E +ve, W -ve) -->"))
-            geo_selection = [new_north,new_south,new_west,new_east]
+            valid = False
+            while valid == False: #use the in-built validation method for this class
+                type_geo_select = "latlon"
+                new_north = float(raw_input("Enter lat for N boundary (N +ve, S -ve) -->"))
+                new_south = float(raw_input("Enter lat for S boundary (N +ve, S -ve) -->"))
+                new_east  = float(raw_input("Enter lon for E boundary (E +ve, W -ve) -->"))
+                new_west  = float(raw_input("Enter lon for W boundart (E +ve, W -ve) -->"))
+                geo_selection = box(new_north,new_south,new_east,new_west)
+                valid = geo_selection.valid()
+                
         elif choice == "2":
             type_geo_select = "circle"
             new_cen_lat = float(raw_input("Enter lat for circle centre (N +ve, S -ve) -->"))
@@ -426,16 +451,16 @@ def geo_select_menu(type_geo_select,geo_selection):
     return(type_geo_select,geo_selection)
                                     
                                  
-def global_options(north,south,east,west,xdim,ydim,startdate,enddate):
+def global_options(map_box,xdim,ydim,startdate,enddate):
     leave = False
     while leave == False :
         os.system('clear')
         print "GLOBAL OPTIONS"
-        print "Current boundaries for maps etc.:"
-        print "NORTH = "+str(north)
-        print "SOUTH = "+str(south)
-        print "EAST  = "+str(east)
-        print "WEST  = "+str(west)
+        print "Spatial viewing boundaries for maps:"
+        print "NORTH = "+lat_str(map_box.n)
+        print "SOUTH = "+lat_str(map_box.s)
+        print "EAST  = "+lon_str(map_box.e)
+        print "WEST  = "+lon_str(map_box.w)
         print "Longitudinal spacing of gridded data = "+str(xdim)
         print "Latitudinal  spacing of gridded data = "+str(ydim)
         print "Start time = " + str(startdate.year) +"-"+str(startdate.month) + "-"+str(startdate.day)
@@ -446,10 +471,11 @@ def global_options(north,south,east,west,xdim,ydim,startdate,enddate):
         print "[Z] Return to top menu"
         choice = raw_input("-->")
         if choice == "B" or choice == "b":
-            north = float(raw_input("Enter new value for NORTH:"))
-            south = float(raw_input("Enter new value for SOUTH:"))
-            east  = float(raw_input("Enter new value for EAST :"))
-            west  = float(raw_input("Enter new value for WEST :"))
+            new_north = float(raw_input("Enter new value for NORTH:"))
+            new_south = float(raw_input("Enter new value for SOUTH:"))
+            new_east  = float(raw_input("Enter new value for EAST :"))
+            new_west  = float(raw_input("Enter new value for WEST :"))
+            map_box = box(new_north,new_south,new_east,new_west)
         elif choice == "S" or choice == "s":
             xdim = change_var(xdim,"Longitudinal spacing of gridded data")
             ydim = change_var(ydim,"Latitudinal  spacing of gridded data")
@@ -465,7 +491,7 @@ def global_options(north,south,east,west,xdim,ydim,startdate,enddate):
         elif choice == "Z" or choice == "z":
             leave = True
         
-    return(north,south,east,west,xdim,ydim,startdate,enddate)
+    return(map_box,xdim,ydim,startdate,enddate)
 
 def change_pickle(current_pickle):
     os.system('clear')
@@ -650,15 +676,15 @@ def draw_screen_poly( rec_lats, rec_lons, m, c, color_index ):
     poly = Polygon( xy, facecolor=[min(1.,0.+this_col*2),1.-2*abs(0.5-this_col),min(1.,2.-this_col*2)], edgecolor='none', alpha=1.0 )
     plt.gca().add_patch(poly)
     
-def prepare_map(north,south,east,west):
-    
+def prepare_map(map_box,boundary=0.1):
+    """Creates a basemap object ready for plotting"""
     m = Basemap(projection='merc',
-            llcrnrlat=south-0.1,urcrnrlat=north+0.1,
-            llcrnrlon=west -0.1,urcrnrlon=east +0.1,
-            lat_ts=(north+south)/2.,resolution='i')
+            llcrnrlat=map_box.s-boundary,urcrnrlat=map_box.n+boundary,
+            llcrnrlon=map_box.w-boundary,urcrnrlon=map_box.e+boundary,
+            lat_ts=(map_box.n+map_box.s)/2.,resolution='i')
     
     #get appropriate grid line spacing for this map
-    min_dimension = min(north-south,east-west)
+    min_dimension = min(map_box.n-map_box.s,map_box.e-map_box.w)
     if min_dimension < 1:
         gl_spacing = 0.1
     elif min_dimension < 5 :
@@ -689,9 +715,9 @@ def free_colorbar(vmin,vmax,label="no label selected",coltype="bwr"):
     cpick.set_array([])
     plt.colorbar(cpick,label=label)
 
-def plot_grid_from_list(lat,lon,var,xdim,ydim,north,south,east,west,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec.cm-3",save=False,save_filename="nofilenamespecified"):
+def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec.cm-3",save=False,save_filename="nofilenamespecified"):
     #Define basemap
-    m = prepare_map(north,south,east,west)
+    m = prepare_map(map_box)
     color_index = colors.Normalize(vmin,vmax)
     (lat,lon,var) = stripallnans(lat,lon,var) #cut out nan values (stops crashes)    
     for i in range(0,len(lat)):
@@ -710,9 +736,9 @@ def plot_grid_from_list(lat,lon,var,xdim,ydim,north,south,east,west,title="Unnam
         fig.savefig(save_filename)
     plt.show()
 
-def plot_dots_on_map(lat,lon,var,north,south,east,west,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec.cm-3",save=False,save_filename="nofilenamespecified"):
+def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec.cm-3",save=False,save_filename="nofilenamespecified"):
     """Draws dots on a map at lat/lon positions, color-coded based on values"""
-    m = prepare_map(north,south,east,west)
+    m = prepare_map(map_box)
     x, y = m(lon,lat)
     m.scatter(x,y,18,marker='.',edgecolors='none',c=var, vmin=vmin, vmax=vmax)
     plt.title(title)
@@ -731,23 +757,23 @@ def geo_select_regional(region_list,text_to_match,*datasets):
         output.append(selected)        
     return(tuple(output))
 
-def in_box(lat,lon,north,south,east,west):
-    if lat < south :
-        return False
-    if lat > north :
-        return False
-    if lon < west :
-        return False
-    if lon > east :
-        return False
-    return True
+#def in_box(lat,lon,north,south,east,west):
+#    if lat < south :
+#        return False
+#    if lat > north :
+#        return False
+#    if lon < west :
+#        return False
+#    if lon > east :
+#        return False
+#    return True
     
 def geo_select_rectangle(lat,lon,geo_selection,*datasets):
     """Reduces datasets down to only those points within designated bounds"""
-    [northbound,southbound,eastbound,westbound] = geo_selection
+    #[northbound,southbound,eastbound,westbound] = geo_selection
     output = []
     for dataset in datasets :
-        selected = [dataset [i] for i in range(0,len(dataset)) if in_box(lat[i],lon[i],northbound,southbound,eastbound,westbound) ]
+        selected = [dataset [i] for i in range(0,len(dataset)) if geo_selection.in_box(lat[i],lon[i]) ]
         output.append(selected)
     return(tuple(output))
 
@@ -813,38 +839,38 @@ def save_pickle_indiv(name,ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time):
         pikname = name + "_1.p"
         pickle.dump( (ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time), open(pikname,"wb") )
         
-def binner(lat,lon,vals,north,south,east,west,stat="mean",xdim=0.3125,ydim=0.25,do_extras=False):
+def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=False):
     """Divides the region into a grid, and computes a statistic for the values falling within it"""
 
-    num_xbins = int((east-west)/xdim) + 1
-    num_ybins = int((north-south)/ydim) + 1
+    num_xbins = int((map_box.e-map_box.w)/xdim) + 1
+    num_ybins = int((map_box.n-map_box.s)/ydim) + 1
     
     #use scistats.binned_statistic_2d with the np function chosen.
     if stat == "mean" : #mean of values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,np.nanmean,bins=[num_xbins,num_ybins],
-            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
             expand_binnumbers=True)
     elif stat == "stdev" : #standard deviation of values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,np.nanstd,bins=[num_xbins,num_ybins],
-            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
             expand_binnumbers=True)
     elif stat == "sum" : #sum of all values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,np.nansum,bins=[num_xbins,num_ybins],
-            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
             expand_binnumbers=True)
     elif stat == "count" : #count of number of values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,notnancount,bins=[num_xbins,num_ybins],
-            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
             expand_binnumbers=True)
     elif stat == "quadsum" : #sum of squares of all values
         qvals = list(np.multiply(vals,vals))
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,qvals,np.nansum,bins=[num_xbins,num_ybins],
-            range=[[west-xdim/2,east+xdim/2],[south-ydim/2,north+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
             expand_binnumbers=True)
     
     #can also work out lats, lons and index map of bins.
@@ -882,28 +908,28 @@ def binner(lat,lon,vals,north,south,east,west,stat="mean",xdim=0.3125,ydim=0.25,
                 out_list.append(binned_stat[i][j])
         return(out_list)
     
-def create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,north,south,east,west,xdim,ydim):
+def create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,map_box,xdim,ydim):
     """Given the individual data, returns a full set of binned data"""
 
     #Mean satellite observation 
     (lat_binned,lon_binned,sat_VC_mean_binned,xedges,yedges,index_map) = \
-        binner(lat,lon,sat_VC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim,
+        binner(lat,lon,sat_VC,map_box,stat="mean",xdim=xdim,ydim=ydim,
                do_extras=True)
     #Standard deviation in satellite observation
     sat_VC_stdev_binned = \
-        binner(lat,lon,sat_VC,north,south,east,west,stat="stdev",xdim=xdim,ydim=ydim)
+        binner(lat,lon,sat_VC,map_box,stat="stdev",xdim=xdim,ydim=ydim)
     #Count of number of observations
     sat_VC_count_binned = \
-        binner(lat,lon,sat_VC,north,south,east,west,stat="count",xdim=xdim,ydim=ydim)
+        binner(lat,lon,sat_VC,map_box,stat="count",xdim=xdim,ydim=ydim)
     #Mean error in satellite observation
     sat_DVC_mean_binned = \
-        binner(lat,lon,sat_DVC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim)    
+        binner(lat,lon,sat_DVC,map_box,stat="mean",xdim=xdim,ydim=ydim)    
     #Mean model observation
     geos_VC_mean_binned = \
-        binner(lat,lon,geos_VC,north,south,east,west,stat="mean",xdim=xdim,ydim=ydim)
+        binner(lat,lon,geos_VC,map_box,stat="mean",xdim=xdim,ydim=ydim)
     #Standard deviation in model values
     geos_VC_stdev_binned = \
-        binner(lat,lon,geos_VC,north,south,east,west,stat="stdev",xdim=xdim,ydim=ydim)
+        binner(lat,lon,geos_VC,map_box,stat="stdev",xdim=xdim,ydim=ydim)
 
     return(lat_binned,lon_binned,xedges,yedges,index_map,
            sat_VC_mean_binned,sat_VC_stdev_binned,sat_VC_count_binned,
@@ -1446,7 +1472,7 @@ def plot_geos_chem(geos_chem_var_dict):
     
     plot_grid_from_list(lat1D,lon1D,data1D,
                         geos_chem_var.lon_spacing,geos_chem_var.lat_spacing,
-                        max(lat1D),min(lat1D),max(lon1D),min(lon1D),
+                        box(max(lat1D),min(lat1D),max(lon1D),min(lon1D)),
                         title=geos_chem_var.human_name,
                         vmin=min(data1D),vmax=max(data1D),
                         lab=geos_chem_var.unit,
