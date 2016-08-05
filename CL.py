@@ -507,20 +507,45 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                             plot_dots_on_map(ida.lat,ida.lon,ida.data[data_key].val,map_box,vmin=vmin,vmax=vmax,title=title,lab=unit,save=False)
                         else: #no plot
                             pass     
-            
-            #IDA update done to this point
-                            
+                                       
             elif uid_menu_choice == "2": #statisics
-                [dataset_choice,stat_choice] = basic_statistics_menu("indiv")
-                if [dataset_choice,stat_choice] != ["Z","Z"]: #unless we're quitting
-                    if dataset_choice == "1": #Mean satellite observations
-                        stat = calc_statistic(sat_VC,  stat_choice)
-                    elif dataset_choice == "2": #uncertainty in satellite observations
-                        stat = calc_statistic(sat_DVC, stat_choice)
-                    elif dataset_choice == "3": #mean modelled values
-                        stat = calc_statistic(geos_VC, stat_choice)
-                    print stat
-                    null = raw_input("Press enter to continue-->")
+            
+                while True: #allow for break to exit
+                    bs1_menu_title = "Which dataset do you wish to calculate statistics for?"
+                    [bs1_menu_text,bs1_answers_dict] = ida.make_menu()
+                    bs1_menu_choice = basic_menu(bs1_menu_title,
+                                                 bs1_menu_text,
+                                                 quit_option=True)
+                    if bs1_menu_choice == "Z":
+                        break
+                    
+                    data_key = bs1_answers_dict[bs1_menu_choice]
+                    
+                    while True: #allow for break to exit   
+                        bs2_menu_title = "Which statistical operator do you want to compute?"
+                        bs2_menu_text=[["1","mean"],
+                                       ["2","standard deviation"],
+                                       ["3","count"]]
+                        bs2_menu_choice= basic_menu(bs2_menu_title,
+                                                    bs2_menu_text,
+                                                    quit_option=True)
+                        if bs2_menu_choice == "Z":
+                            break
+                        
+                        #a cumbersome but robust way of setting stat_choice_text
+                        for pair in bs2_menu_text:
+                            if pair[0] == bs2_menu_choice:
+                                stat_choice_text = pair[1]
+                        
+                        stat = calc_statistic(ida.data[data_key].val,bs2_menu_choice)
+                        
+                        print "Dataset: %s" %ida.data[data_key].description
+                        print "Statistic: %s" %stat_choice_text
+                        print "Result: %g" %stat
+                        
+                        _ = raw_input("Press enter to continue-->")
+                
+            #IDA update done to this point
             
             elif uid_menu_choice == "3": #timeseries statistics
                 [dataset_choice,stat_choice,step_days] = timeseries_statistics_menu()
