@@ -77,18 +77,61 @@ class box:
             else:
                 return(False)   
 
-class obs():
-    """A class for a single satellite observation"""
-    #this class is currenly unused
+class ind:
+    """A class to hold one set of 1D individual data"""
     
-    def ___init___(self,lat,lon,time):
-        self.lat = lat
-        self.lon = lon
+    def ___init___(self,val,name,description=""):
+        self.unit = ""
+        self.name = name
+        self.val = val
+        self.meta = {}
+        if description == "":
+            self.description = name
+        else:
+            self.description = description
+    
+    def __str__(self):
+        return(self.name)
+    
+    #def __repr__(self): #not sure this is good code
+    #    return self.val    
+        
+    def add_meta(self,key,value):
+        self.meta[key]= value
+        
+
+class ind_all:
+    """A class to hold all the individual data"""
+    
+    def __init__(self,lat,lon,time):
+        """Set the core data lists when setting up"""
+        self.lat  = lat
+        self.lon  = lon
         self.time = time
         self.data = {}
+    
+    def valid(self):
+        """Checks all lists are same length"""
+        #first check lat, lon, time
+        x  = len(self.lat)        
+        if x != len(self.lon):
+            return False
+        if x != len(self.time):
+            return False
+            
+        #now go through every val in the data dictionary
+        for key in self.data:
+            if x != len(self.data[key].val):
+                return False
         
-    def add_data(self,name,value):
-        self.data.update({name:value})
+        #if we get here, things are OK
+        return True
+    
+    def list_all_datasets(self):
+        list_of_datasets = []
+        for key in self.data:
+            list_of_datasets.append(self.data[key].description)
+        return(list_of_datasets)
     
 class geos_data():
     """A class for objects of data imported from geos chem output"""
