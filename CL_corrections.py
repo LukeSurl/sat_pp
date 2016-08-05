@@ -9,6 +9,7 @@ from datetime import date
 from datetime import datetime as dt
 from datetime import timedelta as td
 import numpy as np
+from CL_satpp import *
 
 def is_in_range(startdate,enddate,submitdate):
     """True/False: is submitdate between startdate and enddate"""
@@ -377,5 +378,15 @@ def load_and_correct(startdate,enddate,
                                      sat_SC,sat_DSC,AMF,
                                      corr_year,corr_mon,corr_lat,
                                      Vcorrections)
+    
+    #Build ida
+    ida = build_ida(ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF)
+    
+    #add pacific correction type to metadata where applicable
+    ida.data['sat_VC'].add_meta( 'Pacific correction type',corr_type)
+    ida.data['sat_DVC'].add_meta('Pacific correction type',corr_type)
                                    
-    return(ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF)
+    return(ida)
+    
+    
+

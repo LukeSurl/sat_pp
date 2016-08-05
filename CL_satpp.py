@@ -26,17 +26,17 @@ def lat_str(y):
     """Returns string for latitude"""
     deg = u"\u00b0"
     if y >= 0: #north
-        return "%.2f"+deg+"N" %abs(y)
+        return "%.2f%sN" %(abs(y),deg)
     else: #south
-        return "%.2f"+deg+"S" %abs(y)
+        return "%.2f%sS" %(abs(y),deg)
 
 def lon_str(x):
     """Returns string for latitude"""
     deg = u"\u00b0"
     if x >= 0: #east
-        return "%.2f"+deg+"E" %abs(x)
+        return "%.2f%sE" %(abs(x),deg)
     else: #west
-        return "%.2f"+deg+"W" %abs(x)        
+        return "%.2f%sW" %(abs(x),deg)        
 
 class box:
     """A definition of a box"""
@@ -80,7 +80,7 @@ class box:
 class ind:
     """A class to hold one set of 1D individual data"""
     
-    def ___init___(self,val,name,description=""):
+    def __init__(self,val,name,description=""):
         self.unit = ""
         self.name = name
         self.val = val
@@ -132,6 +132,46 @@ class ind_all:
         for key in self.data:
             list_of_datasets.append(self.data[key].description)
         return(list_of_datasets)
+        
+    def filter_all(self,filter_list):
+        """For filer_list the same length as the data, keeps only datapoints where filter_list == True"""
+        
+        all_indexes = range(0,len(self.lat))
+        
+        #core sets
+        self.lat = [self.lat[i]  for i in all_indexes if filter_list[i]]
+        self.lon = [self.lon[i]  for i in all_indexes if filter_list[i]]
+        self.time= [self.time[i] for i in all_indexes if filter_list[i]]
+        
+        #data sets
+        for key in self.data:            
+            self.data[key].val = [self.data[key].val[i] for i in all_indexes if filter_list[i]]
+
+    def make_menu(self):
+        """Create menu options of all the datasets in data"""
+        
+        menu_text = []
+        answers_dict = {}
+        iii = 0
+        for key in self.data:
+            menu_text.append([str(iii),self.data[key].description])
+            answers_dict[str(iii)] = key
+            iii += 1
+        
+        return(menu_text,answers_dict)
+
+def build_ida(ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF):
+    """Creates an ind_all object containing ind objects of basic data"""
+    ida = ind_all(lat,lon,time)
+    ida.data['ULN'] = ind(ULN,'ULN','Unique Line Number')
+    ida.data['geos_VC'] = ind(geos_VC,'geos_VC','GEOS Chem modelled vertical column')
+    ida.data['geos_VC'].unit = 'molec/cm2'
+    ida.data['sat_VC'] = ind(sat_VC,'sat_VC','Observed satellite column')
+    ida.data['sat_VC'].unit = 'molec/cm2'
+    ida.data['sat_DVC'] = ind(sat_DVC,'sat_DVC','Uncertainty in observed satellite column')
+    ida.data['sat_DVC'].unit = 'molec/cm2'
+    ida.data['AMF'] = ind(AMF,'AMF','Air mass factor')
+    return(ida)
     
 class geos_data():
     """A class for objects of data imported from geos chem output"""
@@ -382,7 +422,7 @@ def calc_statistic(dataset,stat_choice):
         return np.count_nonzero(~np.isnan(dataset))
         
     
-def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,units="molec.cm-2"):
+def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec.cm-2"):
     choice = "xx"    
     if title == "":
         title = dataset_name
@@ -394,7 +434,7 @@ def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,units="molec.cm-2"
         print "Title for figure = " + title
         print "Colourbar minimum = " + str(vmin)
         print "Colourbar maximum = " + str(vmax)
-        print "Units text        = " + units
+        print "Units text        = " + unit
         print "OPTIONS:"
         print "[T] Change title"
         print "[C] Change colourbar min/max"
@@ -409,12 +449,12 @@ def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,units="molec.cm-2"
             vmin = change_var(vmin,"Colourbar minimum")
             vmax = change_var(vmax,"Colourbar maximum")
         elif choice.upper() == "U":
-            units = change_var(units,"Units text")
+            unit = change_var(unit,"Units text")
         
         if choice.upper() == "S":
             save_filename = title + ".png"
             save_filename = change_var(save_filename,"Image filename to save (include extension)")
-    return(choice.upper(),title,vmin,vmax,units,save_filename)
+    return(choice.upper(),title,vmin,vmax,unit,save_filename)
     
 def geo_select_menu(type_geo_select,geo_selection):
 
@@ -538,8 +578,8 @@ def global_options(map_box,xdim,ydim,startdate,enddate):
 
 def change_pickle(current_pickle):
     os.system('clear')
-    print "Currently, pickles with prefix %s are loaded." %current_pickle
-    print "To change this, enter a new prefix."
+    print "Currently, pickles named %s* are loaded." %current_pickle
+    print "To change this, enter a new path and pickle name (excluding suffixes)."
     print "Otherwise, enter Z to keep current option and return totop menu"
     choice = raw_input("-->")
     if choice == "Z" or choice == "z":
@@ -567,36 +607,36 @@ def change_var(var,var_name="[unspecified]"):
     var = former_type(raw_input("Enter new value for "+var_name+"-->"))
     return(var)    
 
-def load_new_pickles_all(current_pickle,verbose=True,NDVI=True,indv=True,binn=True):
-    if NDVI:
-        NDVI_data = load_new_pickles_NDVI(current_pickle,verbose=verbose)
-    if indv:
-        indv_data = load_new_pickles_indv(current_pickle,verbose=verbose)
-    if binn:
-        binn_data = load_new_pickles_binn(current_pickle,verbose=verbose)
-    
-    if NDVI:
-        if indv:
-            if binn:
-                return(NDVI_data,indv_data,binn_data) #NIB
-            else:
-                return(NDVI_data,indv_data)           #NIx
-        else:
-            if binn:
-                return(NDVI_data,binn_data)           #NxB
-            else:
-                return(NDVI_data)                     #Nxx
-    else:
-        if indv:
-            if binn:
-                return(indv_data,binn_data)           #xIB
-            else:
-                return(indv_data)                     #xIx
-        else:
-            if binn:
-                return(binn_data)                     #xxB
-            else:
-                return()                              #xxx                    
+#def load_new_pickles_all(current_pickle,verbose=True,NDVI=True,indv=True,binn=True):
+#    if NDVI:
+#        NDVI_data = load_new_pickles_NDVI(current_pickle,verbose=verbose)
+#    if indv:
+#        indv_data = load_new_pickles_indv(current_pickle,verbose=verbose)
+#    if binn:
+#        binn_data = load_new_pickles_binn(current_pickle,verbose=verbose)
+#    
+#    if NDVI:
+#        if indv:
+#            if binn:
+#                return(NDVI_data,indv_data,binn_data) #NIB
+#            else:
+#                return(NDVI_data,indv_data)           #NIx
+#        else:
+#            if binn:
+#                return(NDVI_data,binn_data)           #NxB
+#            else:
+#                return(NDVI_data)                     #Nxx
+#    else:
+#        if indv:
+#            if binn:
+#                return(indv_data,binn_data)           #xIB
+#            else:
+#                return(indv_data)                     #xIx
+#        else:
+#            if binn:
+#                return(binn_data)                     #xxB
+#            else:
+#                return()                              #xxx                    
 
     
 def load_new_pickles_NDVI(current_pickle,verbose=True):
@@ -617,26 +657,15 @@ def load_new_pickles_NDVI(current_pickle,verbose=True):
     NDVI_data = (NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month)
     return(NDVI_data)
     
-def load_new_pickles_indv(current_pickle,verbose=True):    
+def load_new_pickles_indv(current_pickle,suffix="_2.p"):    
     #Individual observations
-    if verbose:
-        print("Loading pickled individual observations")
-    (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = pickle.load( open(current_pickle + "_2.p","rb") )
-    #(lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = stripallnans(lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map)
-    if verbose:
-        print "Pickled individual points now loaded as %i-long lists" %len(sat_VC)
-        print("Latitudes             : lat       ")
-        print("Longitudes            : lon       ")
-        print("Timestamps            : time      ") 
-        print("Observed columns      : sat_VC    ")
-        print("Error in obs.         : sat_DVC   ")
-        print("Modelled columns      : geos_VC   ")
-        print("Country assignments   : country   ")
-        print("State assignments     : state     ") 
-        print("-----------------------------")
-
-    indv_data = (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map)
-    return(indv_data)
+    print("Loading pickled individual observations")
+    ida = pickle.load( open(current_pickle + suffix,"rb") )
+    print("Loaded the following datasets")
+    for text in ida.list_all_datasets():
+        print text
+    
+    return(ida)
 
 def load_new_pickles_binn(current_pickle,verbose=True):     
     #Binned data
@@ -799,6 +828,15 @@ def geo_select_regional(region_list,text_to_match,*datasets):
         selected = [dataset[i] for i in range(0,len(dataset)) if region_list[i] in text_to_match]
         output.append(selected)        
     return(tuple(output))
+    
+def geo_select_regional_i(region_list,text_to_match,ida):
+    """Reduces datasets down to only where the associated region matches a given text string"""
+    selector = []
+    for region in region_list :  
+        selector.append(region in text_to_match)
+    
+    ida.filter_all(selector)      
+    return(ida)    
 
 #def in_box(lat,lon,north,south,east,west):
 #    if lat < south :
@@ -819,6 +857,13 @@ def geo_select_rectangle(lat,lon,geo_selection,*datasets):
         selected = [dataset [i] for i in range(0,len(dataset)) if geo_selection.in_box(lat[i],lon[i]) ]
         output.append(selected)
     return(tuple(output))
+    
+def geo_select_rectangle_i(lat,lon,geo_selection,*datasets):
+    """Reduces datasets down to only those points within designated bounds"""
+
+    selector = geo_selection.in_box(ida.lat,ida.lon)
+    ida.filter_all(selector)
+    return(ida)    
 
     
 def geo_select_circle(lat,lon,geo_selection,*datasets):
@@ -834,13 +879,28 @@ def geo_select_circle(lat,lon,geo_selection,*datasets):
         output.append(selected)
     return(tuple(output))
     
-def time_select(startdate,enddate,time,*datasets):
-    """Reduces datasets down to only where the associated region matches a given text string"""
+def geo_select_circle_i(geo_selection,ida):
+    """Reduces datasets down to only those points within a specified radius of a specified point"""
+    [centre_lat,centre_lon,radius] = geo_selection
     output = []
-    for dataset in datasets :  
-        selected = [dataset[i] for i in range(0,len(dataset)) if startdate <= dt.fromtimestamp(time[i]) <= enddate ]
-        output.append(selected)        
-    return(tuple(output))
+    selector = []
+    for i in range(0,len(ida.lat)):
+       distance = great_circle( (ida.lat[i],ida.lon[i]),
+                                (centre_lat,centre_lon)
+                              ).km
+       selector.append(distance <= radius)
+    
+    ida.filter_all(selector)    
+    return(ida)
+    
+def time_select(startdate,enddate,ida):
+    """Reduces datasets down to only where the associated region matches a given text string"""
+    selector = []
+    for t in ida.time:
+        selector.append(startdate <= time <= enddate)
+    ida.filter_all(selector)
+    
+    return(ida)
     
 def time_cycle(startdate,enddate,step_days,time,dataset,statistic):
     alpha = float(raw_input("alpha value -->"))
@@ -951,8 +1011,15 @@ def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=Fals
                 out_list.append(binned_stat[i][j])
         return(out_list)
     
-def create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,map_box,xdim,ydim):
+def create_binned_set(ida,map_box,xdim,ydim):
     """Given the individual data, returns a full set of binned data"""
+    
+    #pull variables out of ida
+    lat=ida.lat
+    lon=ida.lon
+    sat_VC=ida.data['sat_VC'].val
+    sat_DVC=ida.data['sat_DVC'].val
+    geos_VC=ida.data['geos_VC'].val
 
     #Mean satellite observation 
     (lat_binned,lon_binned,sat_VC_mean_binned,xedges,yedges,index_map) = \
@@ -1041,30 +1108,62 @@ def region_matcher(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
         return(country_out,state_out)
     else:
         return(country_out)
+
+def save_pickle_i(ida,
+                  save_path=None,prefix=None,suffix="_2.p"):
+    """A routine to save individual data"""
+    
+    if save_path == None:
+        print "Enter path for pickles to saved to (blank entry for script folder):"
+        save_path = raw_input("-->")
+
+        #add in a final slash if the user has missed it
+        #if it's blank it defaults to the script directory
+        if save_path != "": 
+            if not save_path.endswith("/"):
+                save_path =save_path + "/"
+    
+    if prefix == None:
+        print "Enter name for pickle file. A suffix of %s will be appended automatically:" %suffix
+        pickle_name = raw_input("-->")
+        pickle_name = pickle_name+suffix
+    else:
+        pickle_name = prefix+suffix
+    
+    save_location = save_path+pickle_name
+    
+    pickle.dump(ida,open(save_location,"wb"))
+    print "Pickle saved to %s" %save_location
         
-def save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
-                 country,state,index_map,
-                 lat_binned,lon_binned,
+def save_pickle_b(lat_binned,lon_binned,
                  sat_VC_mean_binned,sat_VC_stdev_binned,
                  sat_DVC_mean_binned,
                  geos_VC_mean_binned,geos_VC_stdev_binned,
                  NDVI_binned,
-                 country_binned,state_binned,index_map2):
-    print "Enter path for pickles to saved to (blank entry for script folder):"
-    pickle_save_path = raw_input("-->")
+                 country_binned,state_binned,index_map2,
+                 save_path=None,prefix=None,suffix="_binned.p"):
+    """A routine to save binned data"""
     
-    #add in a final slash if the user has missed it
-    #if it's blank it defaults to the script directory
-    if pickle_save_path != "": 
-        if not pickle_save_path.endswith("/"):
-            pickle_save_path = pickle_save_path + "/"
-            
-    print "Enter prefix for pickle file names:"
-    pickle_prefix = raw_input("-->")
+    if save_path == None:
+        print "Enter path for pickles to saved to (blank entry for script folder):"
+        save_path = raw_input("-->")
+
+        #add in a final slash if the user has missed it
+        #if it's blank it defaults to the script directory
+        if save_path != "": 
+            if not save_path.endswith("/"):
+                save_path =save_path + "/"
     
-    pickle.dump((lat,lon,sat_VC,sat_DVC,geos_VC,time,
-                 country,state,index_map),
-                 open(pickle_save_path + pickle_prefix + "_2.p","wb"))
+    if prefix == None:
+        print "Enter name for pickle file. A suffix of %s will be appended automatically:" %suffix
+        pickle_name = raw_input("-->")
+        pickle_name = pickle_name+suffix
+    else:
+        pickle_name = prefix+suffix
+    
+    save_location = save_path+pickle_name
+
+
     #"None" is space for NDVI data             
     pickle.dump((lat_binned,lon_binned,
                  sat_VC_mean_binned,sat_VC_stdev_binned,
@@ -1073,9 +1172,8 @@ def save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
                  NDVI_binned,
                  country_binned,state_binned,
                  index_map2),
-                 open(pickle_save_path + pickle_prefix + "_binned.p","wb"))
-    current_pickle = pickle_save_path + pickle_prefix
-    return(current_pickle)
+                 open(save_location,"wb"))
+                 
     
 def select_a_var(var_names,vartuple,purpose="",numbers_only=True):
     """menu to select one of many variables supplied in a tuple"""
@@ -1429,7 +1527,7 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg"):
             #set units and lat/lon
             #we might end up setting these multiple times but
             #that's not a problem big deal
-            geos_dataset.unit = this_data.units
+            geos_dataset.unit = this_data.unit
             geos_dataset.set_lat_lon(lat,lon)
             
             if len(this_data[0]) != 1: #if there is vertical information

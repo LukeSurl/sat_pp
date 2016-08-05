@@ -76,20 +76,25 @@ if initial_choice == "1":
                        'local_users/lsurl/sat_pp/'\
                        '20140301-20141231'
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
-    (indv_data_all,binn_data_all) = \
-        load_new_pickles_all(current_pickle,verbose=True,NDVI=False)
+    
+    #ida is the main data holder for all individual data
+    #it is of type ind_data_all and holds ind type objects
+    ida_p = load_new_pickles_indv(current_pickle)
+    ida = ida_p #ida_p is kept static while ida gets modified.
+    binn_data_all = load_new_pickes_binn(current_pickle)
+   
     #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
-    (lat,lon,
-        sat_VC,sat_DVC,
-        geos_VC,time,
-        country,state,
-        index_map) = indv_data_all
+    #(lat,lon,
+    #    sat_VC,sat_DVC,
+    #    geos_VC,time,
+    #    country,state,
+    #    index_map) = indv_data_all
     (lat_binned,lon_binned,
         sat_VC_mean_binned,sat_VC_stdev_binned,
         sat_DVC_mean_binned,
         geos_VC_mean_binned,geos_VC_stdev_binned,
         country_binned,state_binned) = binn_data_all
-    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+    #dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
     
 
 #main loop
@@ -121,21 +126,14 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         (changed,current_pickle) = change_pickle(current_pickle)
         if changed:
             #reloading is time-consuming so only do if change made
-            (indv_data_all,binn_data_all) \
-                = load_new_pickles_all(current_pickle,verbose=True,NDVI=False)
-            #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) \
-            #    = NDVI_data_all
-            (lat,lon,
-                sat_VC,sat_DVC,
-                geos_VC,time,
-                country,state,
-                index_map) = indv_data_all
+            ida_p = load_new_pickles_indv(current_pickle)
+            ida = ida_p #ida_p is kept static while ida gets modified.
+            binn_data_all = load_new_pickles_binn(current_pickle)
             (lat_binned,lon_binned,
-             sat_VC_mean_binned,sat_VC_stdev_binned,
-             sat_DVC_mean_binned,
-             geos_VC_mean_binned,geos_VC_stdev_binned,
-             country_binned,state_binned) = binn_data_all
-            dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+                sat_VC_mean_binned,sat_VC_stdev_binned,
+                sat_DVC_mean_binned,
+                geos_VC_mean_binned,geos_VC_stdev_binned,
+                country_binned,state_binned) = binn_data_all
         
     elif top_level_menu_choice == "E": #change emissions
         (changed,current_geosfolder) = change_emfiles(current_geosfolder)
@@ -161,25 +159,18 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         #if time selection has changed, reselect data.
         if datesbefore != (startdate,enddate): 
             print "Start and/or end time has changed. Selecting data..."                
-            (lat,lon,
-             sat_VC,sat_DVC,
-             geos_VC,time,
-             country,state,
-             index_map) = time_select(
-                startdate,enddate,time,
-                lat,lon,sat_VC,sat_DVC,geos_VC,time,
-                country,state,index_map)
+            ida = time_select(startdate,enddate,ida)
             
     elif top_level_menu_choice == "R": #reload pickle
         #re-unpack data sets to clear any previous geographic selection
         print "Reloading..."
-        (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state,index_map) = indv_data_all
+        ida = ida_p
         (lat_binned,lon_binned,
              sat_VC_mean_binned,sat_VC_stdev_binned,
              sat_DVC_mean_binned,
              geos_VC_mean_binned,geos_VC_stdev_binned,
              country_binned,state_binned) = binn_data_all
-        dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+        #dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
         
         
     elif top_level_menu_choice == "G": #geographic selection option
@@ -188,11 +179,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         if before_geo != (type_geo_select,geo_selection): #if geo selection has changed
             print "Updating geographic selection..."
             if type_geo_select == "country":
-                (lat,lon,sat_VC,sat_DVC,geos_VC,
-                 time,country,state,index_map) =\
-                    geo_select_regional(country,geo_selection,
-                    lat,lon,sat_VC,sat_DVC,geos_VC,
-                    time,country,state,index_map)
+                ida =\
+                    geo_select_regional_i(ida.data['country'].val,geo_selection,
+                    ida)
                 (lat_binned,lon_binned,
                  sat_VC_mean_binned,sat_VC_stdev_binned,
                  sat_DVC_mean_binned,
@@ -204,13 +193,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     sat_DVC_mean_binned,
                     geos_VC_mean_binned,geos_VC_stdev_binned,
                     country_binned,state_binned)
-                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+            #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
             elif type_geo_select == "state":
-                (lat,lon,sat_VC,sat_DVC,geos_VC,
-                 time,country,state,index_map) =\
-                    geo_select_regional(state,geo_selection,
-                    lat,lon,sat_VC,sat_DVC,geos_VC,
-                    time,country,state,index_map)
+                ida = geo_select_regional_i(ida.data['state'].val,geo_selection,
+                    ida)
                 (lat_binned,lon_binned,
                  sat_VC_mean_binned,sat_VC_stdev_binned,
                  sat_DVC_mean_binned,
@@ -222,31 +208,25 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     sat_DVC_mean_binned,
                     geos_VC_mean_binned,geos_VC_stdev_binned,
                     country_binned,state_binned)
-                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+            #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
             elif type_geo_select == "rectangle":                   
-                (lat,lon,sat_VC,sat_DVC,geos_VC,
-                 time,country,state,index_map) =\
-                    geo_select_rectangle(lat,lon,geo_selection,
-                    lat,lon,sat_VC,sat_DVC,geos_VC,
-                    time,country,state,index_map)
+                ida = geo_select_rectangle_i(geo_selection,ida)
                 (lat_binned,lon_binned,
                  sat_VC_mean_binned,sat_VC_stdev_binned,
                  sat_DVC_mean_binned,
                  geos_VC_mean_binned,geos_VC_stdev_binned,
-                 countries_binned,states_binned) = geo_select_regional(
+                 countries_binned,states_binned) = geo_select_rectangle(
                     lat_binned,lon_binned,geo_selection,
                     lat_binned,lon_binned,
                     sat_VC_mean_binned,sat_VC_stdev_binned,
                     sat_DVC_mean_binned,
                     geos_VC_mean_binned,geos_VC_stdev_binned,
                     country_binned,state_binned)
-                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+            #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
             elif type_geo_select == "circle":
-                (lat,lon,sat_VC,sat_DVC,geos_VC,
-                 time,country,state,index_map) =\
-                    geo_select_circle(lat,lon,geo_selection,
-                    lat,lon,sat_VC,sat_DVC,geos_VC,
-                    time,country,state,index_map)
+                ida =\
+                    geo_select_circle_i(geo_selection,ida)
+
                 (lat_binned,lon_binned,
                  sat_VC_mean_binned,sat_VC_stdev_binned,
                  sat_DVC_mean_binned,
@@ -258,7 +238,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     sat_DVC_mean_binned,
                     geos_VC_mean_binned,geos_VC_stdev_binned,
                     country_binned,state_binned)
-                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+                #dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
     
     elif top_level_menu_choice == "C": #load and correct a new filtered dataset (lcnfd)
         lcnfd_menu_choice = "" 
@@ -308,7 +288,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             elif lcnfd_menu_choice == "5": #execute
                 
                 #load+correct individual data
-                (ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF) = \
+                ida = \
                     load_and_correct(filtered_startdate,filtered_enddate,
                         filtered_folder=filtered_folder,
                         corrections_folder=corrections_folder,
@@ -321,9 +301,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                  sat_VC_mean_binned,sat_VC_stdev_binned,sat_VC_count_binned,
                  sat_DVC_mean_binned,
                  geos_VC_mean_binned,geos_VC_stdev_binned) = \
-                 create_binned_set(lat,lon,geos_VC,sat_VC,sat_DVC,
-                                   map_box,xdim,ydim)
-                dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+                 create_binned_set(ida,map_box,xdim,ydim)
+                #dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
                 #NDVI should be coded in at this point
                 
                 #Country and state matching
@@ -340,7 +319,14 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 print "Assigning country+state to indiv. data points"
                 (country,state) =\
                     region_matcher(csv_lat,csv_lon,csv_country,csv_state,
-                                   lat,lon)
+                                   ida.lat,ida.lon)
+                                   
+                #add these to ida properly
+                ida.data['country'] = ind(country,'country','Country observation falls within')
+                del country
+                ida.data['state'  ] = ind(state  ,'state'  ,'State observation falls within')
+                del state
+                                   
                 print "Assigning country+state to binned data points"
                 (country_binned,state_binned) =\
                     region_matcher(csv_lat,csv_lon,csv_country,csv_state,
@@ -350,26 +336,54 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                     " these data as new pickles [recommended]?",
                                     [["Y","yes"],["N","no"]],quit_option=False)
                 if option == "Y":
-                    current_pickle = save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
-                                                  country,state,index_map,
-                                                  lat_binned,lon_binned,
-                                                  sat_VC_mean_binned,sat_VC_stdev_binned,
-                                                  sat_DVC_mean_binned,
-                                                  geos_VC_mean_binned,geos_VC_stdev_binned,
-                                                  None,
-                                                  country_binned,state_binned,index_map)
+                    print "Enter path for pickles to saved to (blank entry for script folder):"
+                    save_path = raw_input("-->")
+
+                    #add in a final slash if the user has missed it
+                    #if it's blank it defaults to the script directory
+                    if save_path != "": 
+                        if not save_path.endswith("/"):
+                            save_path =save_path + "/"
+                    
+                    print "Enter name for pickle file. Suffixes will be appended automatically:"
+                    prefix = raw_input("-->")
+                                                       
+                    save_pickle_i(ida,save_path=save_path,prefix=prefix,suffix="_2.p")
+                    ida_p = ida #update the static store
+                    save_pickle_b(lat_binned,lon_binned,
+                                  sat_VC_mean_binned,sat_VC_stdev_binned,
+                                  sat_DVC_mean_binned,
+                                  geos_VC_mean_binned,geos_VC_stdev_binned,
+                                  None, #space for NDVI
+                                  country_binned,state_binned,index_map,
+                                  save_path=save_path,prefix=prefix,suffix="_binned.p")
+                    current_pickle = save_path+prefix
                 
                 del option
                   
     elif top_level_menu_choice == "S":
-        current_pickle = save_pickles(lat,lon,sat_VC,sat_DVC,geos_VC,time,
-                                      country,state,index_map,
-                                      lat_binned,lon_binned,
-                                      sat_VC_mean_binned,sat_VC_stdev_binned,
-                                      sat_DVC_mean_binned,
-                                      geos_VC_mean_binned,geos_VC_stdev_binned,
-                                      None,
-                                      country_binned,state_binned,index_map)
+        print "Enter path for pickles to saved to (blank entry for script folder):"
+        save_path = raw_input("-->")
+
+        #add in a final slash if the user has missed it
+        #if it's blank it defaults to the script directory
+        if save_path != "": 
+            if not save_path.endswith("/"):
+                save_path =save_path + "/"
+        
+        print "Enter name for pickle file. Suffixes will be appended automatically:"
+        prefix = raw_input("-->")
+                                           
+        save_pickle_i(ida,save_path=save_path,prefix=prefix,suffix="_2.p")
+        ida_p = ida #update the static store
+        save_pickle_b(lat_binned,lon_binned,
+                      sat_VC_mean_binned,sat_VC_stdev_binned,
+                      sat_DVC_mean_binned,
+                      geos_VC_mean_binned,geos_VC_stdev_binned,
+                      None, #space for NDVI
+                      country_binned,state_binned,index_map,
+                      save_path=save_path,prefix=prefix,suffix="_binned.p")
+        current_pickle = save_path+prefix
         
     elif top_level_menu_choice == "1": #Binned data
         #ubd = use binned data
@@ -392,7 +406,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     os.system('clear')
                     binned_map_menu_title = "Plotting map of binned data\n"\
                                             "Loaded pickle and global options will be used\n"\
-                                            "Print which variable?"
+                                            "Plot which variable?"
                     binned_map_menu_text = [
                                             ["1","Mean satellite observations"],
                                             ["2","Calculated uncertainty in satellite observations"],
@@ -478,34 +492,24 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     dom_menu_title = "Plotting map of binned data\n"\
                                      "Loaded pickle and global options will be used\n"\
                                      "Print which variable?"
-                    dom_menu_text = [
-                                     ["1","Mean satellite observations"],  
-                                     ["2","Calculated uncertainty in satellite obsservations"],
-                                     ["3","Mean model values"]]
+                    [dom_menu_text,dom_answers_dict] = ida.make_menu()
+
                     dom_menu_choice = basic_menu(dom_menu_title,
                                                  dom_menu_text,
-                                                 quit_option=True)                    
-                    if   dom_menu_choice == "1": #mean satellite observations
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
-                        dataset = sat_VC
-                    elif dom_menu_choice == "2": #uncertainty in satellite observations
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Uncertainty in satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
-                        dataset = sat_DVC
-                    elif dom_menu_choice == "3": #mean modelled values
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Modelled columns",vmin=0.,vmax=3.e16,units="molec.cm-2")
-                        dataset = geos_VC
-                    
-                    #if map_preplot_menu_choice == "": #allow for quick no-entrying
-                    #    map_preplot_menu_choice = "P"
-                    
-                    if dom_menu_choice != "Z" :                                               
-                        #At this point map_preplot_menu_choice will be either Z (up menu), P (plot) or S (save)                    
+                                                 quit_option=True)
+                    if dom_menu_choice != "Z": #unless we're quitting
+                        data_key = dom_answers_dict[dom_menu_choice]
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = \
+                            map_preplot_menu(ida.data[data_key].description,unit=ida.data[data_key].unit)                  
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
-                            plot_dots_on_map(lat,lon,dataset,map_box,vmin=vmin,vmax=vmax,title=title,lab=units,save=True,save_filename=save_filename)
+                            plot_dots_on_map(ida.lat,ida.lon,ida.data[data_key].val,map_box,vmin=vmin,vmax=vmax,title=title,lab=unit,save=True,save_filename=save_filename)
                         elif map_preplot_menu_choice.upper() == "P": #plotting the figure
-                            plot_dots_on_map(lat,lon,dataset,map_box,vmin=vmin,vmax=vmax,title=title,lab=units,save=False)
+                            plot_dots_on_map(ida.lat,ida.lon,ida.data[data_key].val,map_box,vmin=vmin,vmax=vmax,title=title,lab=unit,save=False)
                         else: #no plot
                             pass     
+            
+            #IDA update done to this point
+                            
             elif uid_menu_choice == "2": #statisics
                 [dataset_choice,stat_choice] = basic_statistics_menu("indiv")
                 if [dataset_choice,stat_choice] != ["Z","Z"]: #unless we're quitting
