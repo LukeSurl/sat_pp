@@ -21,6 +21,42 @@ from os.path import isfile, join
 import sys
 from bpch import bpch
 
+
+def lat_str(y):
+    """Returns string for latitude"""
+    deg = u"\u00b0"
+    if y >= 0: #north
+        return "%.2f"+deg+"N" %abs(y)
+    else: #south
+        return "%.2f"+deg+"S" %abs(y)
+
+def lon_str(x):
+    """Returns string for latitude"""
+    deg = u"\u00b0"
+    if x >= 0: #east
+        return "%.2f"+deg+"E" %abs(x)
+    else: #west
+        return "%.2f"+deg+"W" %abs(x)        
+
+class box:
+    """A definition of a box"""
+    
+    def __init__(self,n,s,e,w):
+        self.n = n
+        self.s = s
+        self.e = e
+        self.w = w
+           
+    def __str__(self):
+        return lat_str(self.n)+" - "+lat_str(self.s)+" latitude; "+lon_str(self.e)+" - "+lon_str(self.w)+" longitude"
+        
+    def valid(self):
+        """Checks north is north of south and east is east of west"""
+        if n>s and e>w:
+            return True
+        else:
+            return False
+
 class obs():
     """A class for a single satellite observation"""
     

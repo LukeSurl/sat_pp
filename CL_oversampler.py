@@ -6,6 +6,26 @@ from CL_satpp import *
 import numpy as np
 
 
+class os_data:
+    """A class for oversampled data"""
+    
+    def __init__(self,lat,lon,data,name="unspecified"):
+       self.lat = lat
+       self.lon = lon
+       self.data = data
+       self.meta = {'name':name}
+    
+    def __str__(self):
+        return "Oversampled %s" %self.name
+       
+    def set_unit(self,unit):
+        self.unit = unit
+       
+    def set_meta(self,key,value):
+        #for adding meta data to this dataset
+        self.meta[key] = value
+    
+
 def oversample(var_names,vartuple,lat,lon):
     """User interface for the oversampler"""
     (var,var_name) = select_a_var(var_names,vartuple,
@@ -138,6 +158,18 @@ def oversample(var_names,vartuple,lat,lon):
             var_fine.append(np.nanmean(this_set))
             var_fine_count.append(notnancount(this_set))
             del this_set
+
+    this_os_data = os_data(lat_fine,lon_fine,var_fine,var_name)
+    this_os_data.set_meta('Fine grid dimension',fine_dim)
+    
+    if os_type == "1":
+        this_os_data.set_meta('Oversampling type','circular')
+        this_os_data.set_meta('Oversampling dimensions',averaging_radius)
+    elif os_type == "2":
+        this_os_data.set_meta('Oversampling type','rectangular')
+        this_os_data.set_meta('Oversampling dimensions',[averaging_rectangle_lat_dim,averaging_rectangle_lon_dim])
+
+    #this_os_data.set_meta('Spatial extent'
 
     plot_grid_from_list(lat_fine,lon_fine,var_fine,
                         fine_dim,fine_dim,
