@@ -72,16 +72,14 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 
 if initial_choice == "1":
     print "Loading default options"       
-    current_pickle =   '/group_workspaces/jasmin/geoschem/'\
-                       'local_users/lsurl/sat_pp/'\
-                       '20140301-20141231'
+    current_pickle =   '/home/users/lsurl/CL/pickles/tester'
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     
     #ida is the main data holder for all individual data
     #it is of type ind_data_all and holds ind type objects
     ida_p = load_new_pickles_indv(current_pickle)
     ida = ida_p #ida_p is kept static while ida gets modified.
-    binn_data_all = load_new_pickes_binn(current_pickle)
+    binn_data_all = load_new_pickles_binn(current_pickle)
    
     #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
     #(lat,lon,
@@ -618,12 +616,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                             break
                         break
                    
-            
-            
-            #IDA-ification done to this point
             elif uid_menu_choice == "4": #compare datasets
-                two_var_comparison(indiv_varnames,
-                                   (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))
+                two_var_comparison(ida)
+            
+            #ida-ification done to this point    
             elif uid_menu_choice == "5": #oversampler
                 oversample(indiv_varnames,
                            (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state),

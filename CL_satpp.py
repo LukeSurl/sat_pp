@@ -1239,114 +1239,132 @@ def select_a_var(var_names,vartuple,purpose="",numbers_only=True):
     var_choice_no = int(basic_menu(menu_title,menu_options,quit_option=False))
     return(vartuple[var_choice_no],var_names[var_choice_no])
 
-def two_var_comparison(var_names,vartuple):
-    (xvar,xvar_name) = select_a_var(var_names,vartuple,
-                                    "independant (x-axis) variable",numbers_only=True)
-    (yvar,yvar_name) = select_a_var(var_names,vartuple,
-                                    "dependant (y-axis) variable",numbers_only=True)
-    type_of_comparison = ""
-    while type_of_comparison != "Z":
-        type_of_comparison = basic_menu("Choose type of comparison:",[
-                                        ["1","Scatter plot"],
-                                        ["2","Simple correlation statistics"],
-                                        ["3","Error bar plot"],
-                                        ["4","Advanced correlation statistics"]],
-                                        quit_option=True)
-                                        
-        #if 3 or 4, will need to define errors on one or both datasets.
-        if type_of_comparison in ["3","4"]:
-            [error_x_option,error_y_option] = ["",""]
-            while "Z" not in [error_x_option,error_y_option]:
-                
-                #for x
-                error_x_option = basic_menu("How is error in %s determined?" %xvar_name,[
-                                            ["1","No error"],
-                                            ["2","Fixed value for all data"],
-                                            ["3","Fixed fraction for all data"],
-                                            ["4","Use existing dataset"]],
-                                            quit_option=True)
-                if error_x_option == "Z":
-                    type_of_comparison = "backtomenu" #go back to type_of_comparison menu
-                    continue
-                elif error_x_option == "1":
-                    xvar_errs = None
-                elif error_x_option == "2":                                  
-                    xvar_errs = list(np.zeros_like(xvar))
-                    fixed_error_value = float(raw_input("Enter fixed error value\n"
-                                                        "-->"))
-                    for i in range(0,len(xvar_errs)):
-                        xvar_errs[i] = fixed_error_value
-                    del fixed_error_value
-                elif error_x_option == "3":
-                    xvar_errs = list(np.zeros_like(xvar))
-                    fraction_error_value =float(raw_input("Enter fractional error value\n"
-                                                          "-->"))
-                    for i in range(0,len(xvar_errs)):
-                        xvar_errs[i] = xvar[i]*fraction_error_value
-                    del fractional_error_value
-                elif error_x_option == "4":
-                    (_,xvar_errs) = select_a_var(var_names,vartuple,
-                                                 "errors in independant (x-axis) variable",
-                                                 numbers_only=True)   
-                
-                #for y
-                error_y_option = basic_menu("How is error in %s determined?" %yvar_name,[
-                                            ["1","No error"],
-                                            ["2","Fixed value for all data"],
-                                            ["3","Fixed fraction for all data"],
-                                            ["4","Use existing dataset"]],
-                                            quit_option=True)
-                if error_y_option == "Z":
-                    type_of_comparison = "backtomenu" #go back to type_of_comparison menu
-                    continue
-                elif error_y_option == "1":
-                    yvar_errs = None
-                elif error_y_option == "2":                                  
-                    yvar_errs = list(np.zeros_like(yvar))
-                    fiyed_error_value = float(raw_input("Enter fixed error value\n"
-                                                        "-->"))
-                    for i in range(0,len(yvar_errs)):
-                        yvar_errs[i] = fixed_error_value
-                    del fixed_error_value
-                elif error_y_option == "3":
-                    yvar_errs = list(np.zeros_like(yvar))
-                    fraction_error_value =float(raw_input("Enter fractional error value\n"
-                                                          "-->"))
-                    for i in range(0,len(yvar_errs)):
-                        yvar_errs[i] = yvar[i]*fraction_error_value
-                    del fractional_error_value
-                elif error_y_option == "4":
-                    (_,yvar_errs) = select_a_var(var_names,vartuple,
-                                                 "errors in independant (y-axis) variable",
-                                                 numbers_only=True)
-                #if we've got this far we can leave the while loop
-                break                 
-                                        
-        if type_of_comparison == "1":
-            error_bar_scatter(xvar,yvar,
-                              x_error=None,y_error=None,
-                              title="Scatter plot",
-                              x_label=xvar_name,y_label=yvar_name)
-        elif type_of_comparison == "2":
-            print "Linear regression:"
-            slope, intercept, r_value, p_value, std_err = scistats.linregress(xvar,yvar)
-            print "Best-fit line: y = %+.2gx%+.2g " %(slope,intercept)
-            r_squared = r_value * r_value
-            print "R-squared    : %.4g " %r_squared
-            print "P-value      : %.4g " %p_value
-            print "Standard err : %g "   %std_err        
-            pearsonr = scistats.pearsonr(xvar,yvar)
-            print "Pearson's correlation coefficient:\n %f, 2-tailed p-value: %f" %(pearsonr[0],pearsonr[1])
-            polyfit = np.polyfit(xvar, yvar, 1)
-        elif type_of_comparison == "3":
-            error_bar_scatter(xvar,yvar,
-                  x_error=xvar_errs,y_error=yvar_errs,
-                  title="Error bar plot",
-                  x_label=xvar_name,y_label=yvar_name)
-        elif type_of_comparison == "4":
-            #WYIBF analysis
-            pass
-        _ = raw_input("Press enter to continue -->")
+def two_var_comparison(ida):
+    """Compare two variables and plot a scatter"""
+    while True: #
+        tvc1_menu_title = "DATASET COMPARISON:\n"\
+                          "Select first (x-axis) dataset:"
+        [tvc1_menu_text,tcv1_answers_dict] = ida.make_menu()
+        tvc1_menu_choice = basic_menu(tvc1_menu_title,
+                                      tvc1_menu_text,
+                                      quit_option=True)
+        if tvc1_menu_choice == "Z":
+            break
+        x_key =      tcv1_answers_dict[tvc1_menu_choice]    
+        x_var =      ida.data[x_key].val
+        x_var_name = ida.data[x_key].description
+            
+            
+        while True:
+            tvc2_menu_title = "DATASET COMPARISON:\n"\
+                              "Select second (y-axis) dataset:"
+            [tvc2_menu_text,tcv2_answers_dict] = ida.make_menu()
+            tvc2_menu_choice = basic_menu(tvc2_menu_title,
+                                          tvc2_menu_text,
+                                          quit_option=True)
+            if tvc2_menu_choice == "Z":
+                break
+            
+            y_key =      tcv2_answers_dict[tvc2_menu_choice]   
+            y_var =      ida.data[y_key].val    
+            y_var_name = ida.data[y_key].description
+            
+            while True:
+                tvc3_menu_title = "Choose type of comparison:"
+                tvc3_menu_text = [["1","Scatter plot"],
+                                  ["2","Simple correlation statistics"],
+                                  ["3","Error bar plot"],
+                                  ["4","Advanced correlation statistics"]]
+                type_of_comparison = basic_menu(tvc3_menu_title,
+                                                tvc3_menu_text,
+                                                quit_option=True)
+                if type_of_comparison == "Z":
+                    break
+                                                    
+                #if 3 or 4, will need to define errors on one or both datasets.
+                if type_of_comparison in ["3","4"]:
+                    x_var_errs = get_errors(ida,x_key)
+                    if x_var_errs == "Z":
+                        continue
+                    
+                    y_var_errs = get_errors(ida,y_key)
+                    if y_var_errs == "Z":
+                        continue    
+                                                                
+                if type_of_comparison == "1":
+                    error_bar_scatter(x_var,y_var,
+                                      x_error=None,y_error=None,
+                                      title="Scatter plot",
+                                      x_label=x_var_name,y_label=y_var_name,
+                                      x_min=np.nanmin(x_var),x_max=np.nanmax(x_var),
+                                      y_min=np.nanmin(y_var),y_max=np.nanmax(y_var))
+                elif type_of_comparison == "2":
+                    print "Linear regression:"
+                    slope, intercept, r_value, p_value, std_err = scistats.linregress(x_var,y_var)
+                    print "Best-fit line: y = %+.2gx%+.2g " %(slope,intercept)
+                    r_squared = r_value * r_value
+                    print "R-squared    : %.4g " %r_squared
+                    print "P-value      : %.4g " %p_value
+                    print "Standard err : %g "   %std_err        
+                    pearsonr = scistats.pearsonr(x_var,y_var)
+                    print "Pearson's correlation coefficient:\n %f, 2-tailed p-value: %f" %(pearsonr[0],pearsonr[1])
+                    polyfit = np.polyfit(x_var, y_var, 1)
+                    _ = raw_input("Press enter to continue-->")
+                elif type_of_comparison == "3":
+                    error_bar_scatter(x_var,y_var,
+                          x_error=x_var_errs,y_error=y_var_errs,
+                          title="Error bar plot",
+                          x_label=x_var_name,y_label=y_var_name,
+                          x_min=np.nanmin(x_var),x_max=np.nanmax(x_var),
+                          y_min=np.nanmin(y_var),y_max=np.nanmax(y_var))
+                elif type_of_comparison == "4":
+                    #WYIBF analysis
+                    pass
+                    _ = raw_input("Press enter to continue-->")
+
+def get_errors(ida,var_key):
+    """Selects errors based on user options"""
+    
+    var_name = ida.data[var_key].description
+    var = ida.data[var_key].val
+       
+    e_choice = basic_menu("How is error in %s determined?" %var_name,[
+                        ["1","No error"],
+                        ["2","Fixed value for all data"],
+                        ["3","Fixed fraction for all data"],
+                        ["4","Use existing dataset"]],
+                        quit_option=True)
+    if e_choice == "Z":
+        var_errs = "Z"
+    elif e_choice == "1":
+        var_errs = None
+    elif e_choice == "2":                                  
+        var_errs = list(np.zeros_like(var))
+        fixed_error_value = float(raw_input("Enter fixed error value\n"
+                                        "-->"))
+        for i in range(0,len(var_errs)):
+            var_errs[i] = fixed_error_value
+
+    elif e_choice == "3":
+        var_errs = list(np.zeros_like(var))
+        fraction_error_value =float(raw_input("Enter fractional error value\n"
+                                              "-->"))
+        for i in range(0,len(var_errs)):
+            var_errs[i] = var[i]*fraction_error_value
+        
+        
+    elif e_choice == "4":
+        e_d_menu_title = "DATASET COMPARISON:\n"\
+                      "Select second (y-axis) dataset:"
+        [e_d_menu_text,e_d_answers_dict] = ida.make_menu()
+        e_d_menu_choice = basic_menu(e_d_menu_title,
+                                  e_d_menu_text,
+                                  quit_option=False)
+        
+        var_errs = ida.data[e_d_answers_dict[e_d_menu_choice]].val
+     
+    return(var_errs)    
+
         
 def error_bar_scatter(x_var,y_var,
                       x_error=None,y_error=None,
@@ -1361,7 +1379,7 @@ def error_bar_scatter(x_var,y_var,
     
     #if alpha (transparency) undefined, estimate a good alpha based on the dataset size
     if alpha == None:
-        alpha = float(len(x_var))^0.2
+        alpha = float(len(x_var))**-0.4
         
     #if plotting mins and maxes are not defined, use mins and maxes of data,
     if x_min == None:
@@ -1375,20 +1393,20 @@ def error_bar_scatter(x_var,y_var,
         
     #consider all 0 error to be no errors defined    
     if x_error == None and y_error == None: #no error bars
-        plt.scatter(x_var, y_var,
-                    alpha=alpha, fmt="o", color='g')
+        plt.scatter(x_var, y_var,fmt='o',
+                    alpha=alpha)
     elif x_error != None and y_error == None: #bars for x, none for y
-        plt.errorbar(x_data, y_data, xerr=x_error,
-                     alpha=alpha, fmt="o", color='g')
+        plt.errorbar(x_var, y_var, xerr=x_error,fmt='o',
+                     alpha=alpha)
     elif x_error == None and y_error != None: #none for x, bars for y
-        plt.errorbar(x_data, y_data, yerr=y_error,
-                     alpha=alpha, fmt="o", color='g')
+        plt.errorbar(x_var, y_var, yerr=y_error,fmt='o',
+                     alpha=alpha)
     elif x_error != None and y_error != None: #bars for x, bars for y
-        plt.errorbar(x_data, y_data, xerr=x_error, yerr=y_error,
-                     alpha=alpha, fmt="o", color='g')   
+        plt.errorbar(x_var, y_var, xerr=x_error, yerr=y_error,fmt='o',
+                     alpha=alpha)   
     
     if do_best_fit or do_best_fit_equation:
-        par = np.polyfit(x_data, y_data, 1, full=True)
+        par = np.polyfit(x_var, y_var, 1, full=True)
         slope=par[0][0]
         intercept=par[0][1]
         line_xs = [x_min, x_max]
