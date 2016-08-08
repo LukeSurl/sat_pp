@@ -478,7 +478,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             uid_menu_text  = [
                 ["1","Simple dots-on-map"],
                 ["2","Compute basic statistics"],
-                ["3","Compute timeseries statistics"],
+                ["3","Timeseries"],
                 ["4","Compare two datasets"],
                 ["5","Oversample"]
                 ]
@@ -548,18 +548,79 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             #IDA update done to this point
             
             elif uid_menu_choice == "3": #timeseries statistics
-                [dataset_choice,stat_choice,step_days] = timeseries_statistics_menu()
-                if [dataset_choice,stat_choice,step_days] != ["Z","Z",0]: #unless we're quitting
-                    if dataset_choice == "1": #mean satellite observations
-                        (stat_series,time_series) = time_cycle(startdate,enddate,step_days,time,sat_VC,stat_choice)
-                    elif dataset_choice == "2": #uncertainty in satellite observations
-                        (stat_series,time_series) = time_cycle(startdate,enddate,step_days,time,sat_DVC,stat_choice)
-                    elif dataset_choice == "3": #mean satellite observations
-                        (stat_series,time_series) = time_cycle(startdate,enddate,step_days,time,geos_VC,stat_choice)
-                    print stat_series
-                    print time_series
-                    null = raw_input("Press enter to continue-->")
-          
+            
+                while True: #allow for break to exit
+                    ts1_menu_title = "Which dataset do you wish to get a timeseries for?"
+                    [ts1_menu_text,ts1_answers_dict] = ida.make_menu()
+                    ts1_menu_choice = basic_menu(ts1_menu_title,
+                                                 ts1_menu_text,
+                                                 quit_option=True)
+                    if ts1_menu_choice == "Z":
+                        break
+                    
+                    data_key = ts1_answers_dict[ts1_menu_choice]
+                      
+                    while True: #allow for break to exit   
+                        ts2_menu_title = "Which statistical operator do you want to compute for each time period?"
+                        ts2_menu_text=[["1","mean"],
+                                       ["2","standard deviation"],
+                                       ["3","count"]]
+                        ts2_menu_choice= basic_menu(ts2_menu_title,
+                                                    ts2_menu_text,
+                                                    quit_option=True)
+                        if ts2_menu_choice == "Z":
+                            break
+                        
+                        #a cumbersome but robust way of setting stat_choice_text
+                        for pair in ts2_menu_text:
+                            if pair[0] == ts2_menu_choice:
+                                stat_choice_text = pair[1]
+                                stat_choice = ts2_menu_choice
+                        
+                        step = 0 #assign 0 before assignment
+                        month_flag = False #False unless set to True       
+                        while True: #allow for break to exit
+                            print "How long should the time series be for each individual point?"
+                            print "Enter a number to choose that many days"
+                            print "Alternatively, enter M then a number (i.e. M1) to set timestep to that many calendar months"
+                            print "[Z] Return to previous menu"
+                            ts3_menu_choice = raw_input("-->").upper()
+                            if ts3_menu_choice == "Z":
+                                break
+                            elif ts3_menu_choice.startswith("M"):
+                                try:
+                                    step = int( ts3_menu_choice[1:] )
+                                    month_flag = True
+                                except ValueError:
+                                    print "Invalid selection."
+                                    continue
+                            else:
+                                try:
+                                    step = int(ts3_menu_choice)
+                                except ValueError:
+                                    print "Invalid selection."
+                                    continue
+                            
+                            if step > 0: #if we've assigned a valid option
+                                clearscreen()
+                                # visual readout
+                                print "Dataset:   " + ida.data[data_key].description
+                                print "Statistic: " + stat_choice_text
+                                if month_flag:
+                                    print "Timesteps: "+ str(step) + " calendar months"
+                                else:
+                                    print "Timesteps: " + str(step) + " days"
+                                                                        
+                                this_ts = \
+                                    time_cycle(ida,data_key,stat_choice,
+                                    step,month_flag=month_flag,plot=True)  
+                                
+                            break
+                        break
+                   
+            
+            
+            #IDA-ification done to this point
             elif uid_menu_choice == "4": #compare datasets
                 two_var_comparison(indiv_varnames,
                                    (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state))

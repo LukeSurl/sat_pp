@@ -84,7 +84,7 @@ def load_filtered_main(data_folder,startdate,enddate):
             ULN.append(int(columns[0]))    
             lat.append(float(columns[2]))
             lon.append(float(columns[3]))
-            time.append(float(columns[1]))
+            time.append(dt.fromtimestamp(float(columns[1]))) #datetime object
             geos_VC.append(float(columns[4]))
             sat_SC.append(float(columns[6]))
             sat_DSC.append(float(columns[7]))
@@ -184,7 +184,7 @@ def AMF_and_correction(ULN,lat,time,sat_SC,sat_DSC,AMF,
         lat_to_find = find_nearest(lat_levels,lat[i])
         
         #work out the year and month of this data point
-        this_date = date.fromtimestamp(time[i])
+        this_date = time[i]
         this_year = this_date.year
         this_month = this_date.month
 
@@ -255,7 +255,7 @@ def BASIC_AMF_and_correction(lat,time,sat_SC,sat_DSC,
         lat_to_find = float(find_nearest(lat_levels,lat[i]))
         
         #work out the year and month of this data point        
-        this_date = date.fromtimestamp(time[i])
+        this_date = time[i]
         this_year = this_date.year
         this_month = this_date.month
 

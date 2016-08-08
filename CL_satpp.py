@@ -20,7 +20,7 @@ from os import listdir
 from os.path import isfile, join
 import sys
 from bpch import bpch
-
+from dateutil.relativedelta import relativedelta
 
 def lat_str(y):
     """Returns string for latitude"""
@@ -466,7 +466,7 @@ def geo_select_menu(type_geo_select,geo_selection):
         print "GEOGRAPHIC SELECTION OPTION"
         if type_geo_select == "latlon":
             print "Currently, geographic selection done by rectangular area,"
-            print "%f to %f latitude, %f to %f longitude" %(geo_selection[1],geo_selection[0],geo_selection[3],geo_selection[2])
+            print "%f to %f latitude, %f to %f longitude" %(geo_selection.s,geo_selection.n,geo_selection.w,geo_selection.e)
         elif type_geo_select == "circle":
             print "Currently, geographic selection done by circular area,"
             print "Centre point: %f N, %f E, Radius %f km" %(geo_selection[0],geo_selection[1],geo_selection[2])
@@ -894,41 +894,87 @@ def geo_select_circle_i(geo_selection,ida):
     return(ida)
     
 def time_select(startdate,enddate,ida):
-    """Reduces datasets down to only where the associated region matches a given text string"""
+    """Reduces ida down to only points within two dates"""
     selector = []
     for t in ida.time:
-        selector.append(startdate <= time <= enddate)
+        selector.append(startdate <= t <= enddate)
     ida.filter_all(selector)
     
     return(ida)
     
-def time_cycle(startdate,enddate,step_days,time,dataset,statistic):
-    alpha = float(raw_input("alpha value -->"))
+def time_select_list(startdate,enddate,time,data):
+    """Reduces data down to only points where associated time within two dates"""
+    data_filtered = []
+    for i in range(0,len(data)):
+        if startdate <= time[i] <= enddate:
+            data_filtered.append(data[i])
     
-    #time_scatter(time,dataset,alpha=alpha)
+    return(data_filtered)
     
-    clocklow = startdate
+def time_cycle(ida,data_key,stat_choice,
+               step,month_flag=False,
+               plot=False):
+    
+    time = ida.time
+    data = ida.data[data_key].val           
+    alpha = 1.0
+       
+    #sort the data into time bins
+    earliest_dt = min(time)
+    last_dt     = max(time)
+    
+    if month_flag: #if we're doing calendar months        
+        clocklow = dt(earliest_dt.year,earliest_dt.month,1,0,0,0)
+        
+        step = relativedelta(months=step)
+    else: #normal steps
+        clocklow = dt(earliest_dt.year,earliest_dt.month,earliest_dt.day,0,0,0)
+        step = relativedelta(days=step)
+        
     stat_collection = []
     time_collection = []
-    while clocklow <= enddate:
-        clockhigh = clocklow + td(days=step_days)
-        this_dataset = time_select(clocklow,clockhigh,time,dataset)
-        this_stat = calc_statistic(this_dataset,statistic)
-        central_time = clocklow + td(days=step_days*0.5)
+    time_bounds_collection = []    
+
+    print "Computing..."
+    
+    while clocklow <= last_dt:
+        clockhigh = clocklow + step
+        #print clocklow
+        #print clockhigh
+        #print step
+        #print "-----"
+        this_dataset = time_select_list(clocklow,clockhigh,time,data)
+        this_stat = calc_statistic(this_dataset,stat_choice)
+        central_time = clocklow + 0.5*step
         stat_collection.append(this_stat)
         time_collection.append(central_time)
-        clocklow = clockhigh
-    
-    #plot these averages
-    time_scatter(time_collection,stat_collection,alpha=1.0)
-    
-    return(stat_collection,time_collection)
+        time_bounds_collection.append([clocklow,clockhigh])
+        #now continue the cycle
+        clocklow = clocklow + step
+        
+    if plot:
+        plot_title = ida.data[data_key].description
+        x_label = "date"
+        if stat_choice == "1":
+            y_label = "mean value / " + ida.data[data_key].unit
+        elif stat_choice ==  "2":
+            y_label = "standard deviation of values / " + ida.data[data_key].unit
+        elif stat_choice == "3":
+            y_label = "number of values"
 
-def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha=0.2):
+        
+        #plot these:
+        time_scatter(time_collection,stat_collection,
+                     title=plot_title,
+                     x_label=x_label,y_label=y_label,alpha=1.0)
+    
+    return(stat_collection,time_collection,time_bounds_collection)
+
+def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha=1.0):
     if yerr == []:
-        plt.scatter(time, y, alpha=alpha, color='g')
+        plt.plot(time, y, alpha=alpha, color='g',marker="o")
     else:
-        plt.errorbar(time, y, yerr=yerr, alpha=alpha, color='g')
+        plt.errorbar(time, y, yerr=yerr, alpha=alpha, color='g',marker="o")
 
     plt.xlabel(x_label, fontsize=16)
     plt.ylabel(y_label, fontsize=16)
