@@ -52,7 +52,7 @@ class box:
         
     def valid(self):
         """Checks north is north of south and east is east of west"""
-        if n>s and e>w:
+        if self.n>self.s and self.e>self.w:
             return True
         else:
             print "Not a valid spatial extent"
@@ -64,15 +64,17 @@ class box:
             #if we have lists, get a corresponding list output.
             output = []
             for i in range(0,len(lat_test)):
-                if self.s <= lat_test <= self.n and \
-                       self.w <= lat_test <= self.e:
+                if self.s <= lat_test[i] <= self.n and \
+                       self.w <= lon_test[i] <= self.e:
+                    #print "list item true"
                     output.append(True)
                 else:
+                    #print "list item false"
                     output.append(False)
             return(output)
         else: #if scalar
             if self.s <= lat_test <= self.n and \
-                   self.w <= lat_test <= self.e:
+                   self.w <= lon_test <= self.e:
                 return(True)
             else:
                 return(False)   
@@ -858,7 +860,7 @@ def geo_select_rectangle(lat,lon,geo_selection,*datasets):
         output.append(selected)
     return(tuple(output))
     
-def geo_select_rectangle_i(lat,lon,geo_selection,*datasets):
+def geo_select_rectangle_i(geo_selection,ida):
     """Reduces datasets down to only those points within designated bounds"""
 
     selector = geo_selection.in_box(ida.lat,ida.lon)

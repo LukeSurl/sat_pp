@@ -5,6 +5,7 @@ from CL_corrections import *
 from CL_oversampler import *
 import os
 from datetime import datetime as dt
+import copy
 
 #"shorthand" variables
 yesno = [["Y","Yes"],["N","No"]] 
@@ -78,7 +79,7 @@ if initial_choice == "1":
     #ida is the main data holder for all individual data
     #it is of type ind_data_all and holds ind type objects
     ida_p = load_new_pickles_indv(current_pickle)
-    ida = ida_p #ida_p is kept static while ida gets modified.
+    ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
     binn_data_all = load_new_pickles_binn(current_pickle)
    
     #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
@@ -417,23 +418,23 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                                         binned_map_menu_text,
                                                         quit_option=True)
                     if   binned_map_menu_choice == "1": #mean satellite observations
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = map_preplot_menu("Mean satellite observation",vmin=0.,vmax=3.e16,unit="molec.cm-2")
                         dataset = sat_VC_mean_binned
                     elif binned_map_menu_choice == "2": #uncertainty in satellite observations
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Uncertainty in mean satellite observation",vmin=0.,vmax=3.e16,units="molec.cm-2")
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = map_preplot_menu("Uncertainty in mean satellite observation",vmin=0.,vmax=3.e16,unit="molec.cm-2")
                         dataset = sat_VC_stdev_binned
                     elif binned_map_menu_choice == "3": #mean modelled values
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean modelled columns",vmin=0.,vmax=3.e16,units="molec.cm-2")
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = map_preplot_menu("Mean modelled columns",vmin=0.,vmax=3.e16,unit="molec.cm-2")
                         dataset = geos_VC_mean_binned
                     elif binned_map_menu_choice == "4": #standard deviation in modelled values
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Standard deviation of modelled columns",vmin=0.,vmax=3.e16,units="molec.cm-2")
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = map_preplot_menu("Standard deviation of modelled columns",vmin=0.,vmax=3.e16,unit="molec.cm-2")
                         dataset = geos_VC_stdev_binned
                     elif binned_map_menu_choice == "5": #mean NDVI value
                         print "NDVI option not yet available"
-                        #(map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Mean NDVI value",vmin=0.,vmax=1.,units="(unitless)")
+                        #(map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = map_preplot_menu("Mean NDVI value",vmin=0.,vmax=1.,unit="(unitless)")
                         #dataset = NDVI_mean_binned
                     elif binned_map_menu_choice == "6": #sigma deviation of model from observations
-                        (map_preplot_menu_choice,title,vmin,vmax,units,save_filename) = map_preplot_menu("Deviation of model from observations",vmin=-2.5,vmax=2.5,units="sigmas")
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = map_preplot_menu("Deviation of model from observations",vmin=-2.5,vmax=2.5,unit="sigmas")
                         dataset = dev_mean_binned
                     elif binned_map_menu_choice == "Z": #go up a menu
                          quit_binned_map_menu = True
@@ -444,9 +445,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     if binned_map_menu_choice != "Z" :                                               
                         #At this point binned_map_preplot_menu_choice will be either Z (up menu), P (plot) or S (save)                    
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
-                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,map_box,title=title,vmin=vmin,vmax=vmax,lab=units,save=True,save_filename=save_filename)
+                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,map_box,title=title,vmin=vmin,vmax=vmax,lab=unit,save=True,save_filename=save_filename)
                         elif map_preplot_menu_choice.upper() == "P": #plotting the figure
-                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,map_box,title=title,vmin=vmin,vmax=vmax,lab=units,save=False)
+                            plot_grid_from_list(lat_binned,lon_binned,dataset,xdim,ydim,map_box,title=title,vmin=vmin,vmax=vmax,lab=unit,save=False)
                         else: #no plot
                             pass
             elif ubd_menu_choice == "2": #statisics
@@ -621,9 +622,12 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             
             #ida-ification done to this point    
             elif uid_menu_choice == "5": #oversampler
-                oversample(indiv_varnames,
-                           (lat,lon,sat_VC,sat_DVC,geos_VC,time,country,state),
-                           lat,lon)
+                #print len(ida.lat)
+                #raw_input("halt-->")
+                os_ida = copy.deepcopy(ida)
+                os_data = oversample(os_ida)
+                #print len(ida.lat)
+                #raw_input("halt-->")
 
         
                
