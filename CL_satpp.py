@@ -58,7 +58,7 @@ class box:
             print "Not a valid spatial extent"
             return False
     
-    def in_box(self,lat_test,lon_test):
+    def within(self,lat_test,lon_test):
         """Checks if lat lon pair are in the box"""
         if type(lat_test) == list:
             #if we have lists, get a corresponding list output.
@@ -79,6 +79,39 @@ class box:
             else:
                 return(False)   
 
+class circle:
+    """An object describing a circlular area"""
+    
+    def __init__(self,lat,lon,radius):
+        self.lat = lat
+        self.lon = lon
+        self.radius = radius
+        
+    def __str__(self):
+        return "Circle centred at "+lat_str(self.lat)+", "+lon_str(self.lon)+", with radius "+str(self.radius)+"km."
+
+    def within(self,lat_test,lon_test):
+       """Checks in lat lon pair are within the circle"""
+       if type(lat_test) == list:
+            #if we have lists, get a corresponding list output.
+            output = []
+            for i in range(0,len(lat_test)):
+                if great_circle((lat_test[i],lon_test[i]),
+                                (self.lat,   self.lon   )).km \
+                                <= self.radius :
+                    #print "list item true"
+                    output.append(True)
+                else:
+                    #print "list item false"
+                    output.append(False)
+            return(output)
+       else: #if scalar
+           if great_circle((lat_test,   lon_test   ),
+                           (self.lat,   self.lon   )).km \
+                           <= self.radius :
+               return(True)
+           else:
+               return(False)    
 class ind:
     """A class to hold one set of 1D individual data"""
     
@@ -100,7 +133,29 @@ class ind:
         
     def add_meta(self,key,value):
         self.meta[key]= value
+
+class bnd:
+    """A class to hold one set of binned data"""
+    
+    def __init__(self,val,name,description=""):
+        self.unit = ""
+        self.name = name
+        self.val = val
+        self.meta = {}
+        if description == "":
+            self.description = name
+        else:
+            self.description = description
+    
+    def __str__(self):
+        return(self.name)
+    
+    #def __repr__(self): #not sure this is good code
+    #    return self.val    
         
+    def add_meta(self,key,value):
+        self.meta[key]= value
+            
 
 class ind_all:
     """A class to hold all the individual data"""
@@ -162,6 +217,70 @@ class ind_all:
         
         return(menu_text,answers_dict)
 
+class bin_all:
+    """A class to hold all the binned data"""
+    
+    #basically this is the same as ind_all but we don't have time
+    
+    def __init__(self,lat,lon):
+        """Set the core data lists when setting up"""
+        self.lat  = lat
+        self.lon  = lon
+        
+        #self.time = time
+        self.data = {}
+        self.meta = {}
+    
+    def valid(self):
+        """Checks all lists are same length"""
+        #first check lat, lon, time
+        x  = len(self.lat)        
+        if x != len(self.lon):
+            return False
+        #if x != len(self.time):
+        #    return False
+            
+        #now go through every val in the data dictionary
+        for key in self.data:
+            if x != len(self.data[key].val):
+                return False
+        
+        #if we get here, things are OK
+        return True
+    
+    def list_all_datasets(self):
+        list_of_datasets = []
+        for key in self.data:
+            list_of_datasets.append(self.data[key].description)
+        return(list_of_datasets)
+        
+    def filter_all(self,filter_list):
+        """For filer_list the same length as the data, keeps only datapoints where filter_list == True"""
+        
+        all_indexes = range(0,len(self.lat))
+        
+        #core sets
+        self.lat = [self.lat[i]  for i in all_indexes if filter_list[i]]
+        self.lon = [self.lon[i]  for i in all_indexes if filter_list[i]]
+        #self.time= [self.time[i] for i in all_indexes if filter_list[i]]
+        
+        #data sets
+        for key in self.data:            
+            self.data[key].val = [self.data[key].val[i] for i in all_indexes if filter_list[i]]
+
+    def make_menu(self):
+        """Create menu options of all the datasets in data"""
+        
+        menu_text = []
+        answers_dict = {}
+        iii = 0
+        for key in self.data:
+            menu_text.append([str(iii),self.data[key].description])
+            answers_dict[str(iii)] = key
+            iii += 1
+        
+        return(menu_text,answers_dict)
+
 def build_ida(ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF):
     """Creates an ind_all object containing ind objects of basic data"""
     ida = ind_all(lat,lon,time)
@@ -174,7 +293,10 @@ def build_ida(ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF):
     ida.data['sat_DVC'].unit = 'molec/cm2'
     ida.data['AMF'] = ind(AMF,'AMF','Air mass factor')
     return(ida)
-    
+
+
+# do we want a build_bda def here? 
+   
 class geos_data():
     """A class for objects of data imported from geos chem output"""
     
@@ -424,7 +546,7 @@ def calc_statistic(dataset,stat_choice):
         return np.count_nonzero(~np.isnan(dataset))
         
     
-def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec.cm-2"):
+def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2"):
     choice = "xx"    
     if title == "":
         title = dataset_name
@@ -468,10 +590,13 @@ def geo_select_menu(type_geo_select,geo_selection):
         print "GEOGRAPHIC SELECTION OPTION"
         if type_geo_select == "latlon":
             print "Currently, geographic selection done by rectangular area,"
-            print "%f to %f latitude, %f to %f longitude" %(geo_selection.s,geo_selection.n,geo_selection.w,geo_selection.e)
+            print "%s to %s latitude, %s to %s longitude" %(
+                   lat_str(geo_selection.s),lat_str(geo_selection.n),lon_str(geo_selection.w),lon_str(geo_selection.e)
+                   )
         elif type_geo_select == "circle":
             print "Currently, geographic selection done by circular area,"
-            print "Centre point: %f N, %f E, Radius %f km" %(geo_selection[0],geo_selection[1],geo_selection[2])
+            print "Centre point: %s , %s , Radius %g km" %(
+                   lat_str(geo_selection.lat),lon_str(geo_selection.lon),geo_selection.radius)
         elif type_geo_select == "country":
             print "Currenty, geographic selection done by country"            
             #if type(selection) == str: #if it's one country, it should be a 1-member list
@@ -509,7 +634,7 @@ def geo_select_menu(type_geo_select,geo_selection):
             new_cen_lat = float(raw_input("Enter lat for circle centre (N +ve, S -ve) -->"))
             new_cen_lon = float(raw_input("Enter lon for circle centre (E +ve, W -ve) -->"))
             new_radius  = float(raw_input("Enter radius of circle (km) -->"))
-            geo_selection = [new_cen_lat,new_cen_lon,new_radius]
+            geo_selection = circle(new_cen_lat,new_cen_lon,new_radius)
         elif choice == "3":
             type_geo_select = "country"
             geo_selection = []
@@ -659,49 +784,15 @@ def load_new_pickles_NDVI(current_pickle,verbose=True):
     NDVI_data = (NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month)
     return(NDVI_data)
     
-def load_new_pickles_indv(current_pickle,suffix="_2.p"):    
+def load_new_pickles_da(current_pickle,suffix):    
     #Individual observations
     print("Loading pickled individual observations")
-    ida = pickle.load( open(current_pickle + suffix,"rb") )
+    da = pickle.load( open(current_pickle + suffix,"rb") )
     print("Loaded the following datasets")
-    for text in ida.list_all_datasets():
+    for text in da.list_all_datasets():
         print text
     
-    return(ida)
-
-def load_new_pickles_binn(current_pickle,verbose=True):     
-    #Binned data
-    if verbose:
-        print("Loading pickled binned data (full date range)")      
-        
-    (lat_binned,lon_binned,
-     sat_VC_mean_binned,sat_VC_stdev_binned,
-     sat_DVC_mean_binned,
-     geos_VC_mean_binned,geos_VC_stdev_binned,
-     NDVI_binned,
-     country_binned,state_binned,
-     index_map2) = pickle.load( open(current_pickle + "_binned.p","rb") )
-    
-    if verbose:
-        print "Pickled binned data now loaded as %i-long lists" %len(lat_binned)
-        print("Binned latitudes     : lat_binned         ")
-        print("Binned_longitudes    : lon_binned         ")
-        print("Binned obs., mean    : sat_VC_mean_binned ") 
-        print("Binned obs., stdev   : sat_VC_stdev_binned")
-        print("Binned obs. av. error: sat_DVC_mean_binned")
-        print("Binned modelled mean : geos_VC_mean_binned")
-        print("Binned modelled stdev: geos_VC_stdev_binned")
-        print("Country strings      : country_binned ")
-        print("State strings        : state_binned    ")
-        print("-----------------------------")
-    binn_data = (lat_binned,lon_binned,
-     sat_VC_mean_binned,sat_VC_stdev_binned,
-     sat_DVC_mean_binned,
-     geos_VC_mean_binned,geos_VC_stdev_binned,
-     country_binned,state_binned)
-    
-    print("All data loaded. Have fun with it!")
-    return(binn_data)
+    return(da)
 
 def stripallnans(*a):
     """For multiple 1D lists of floats of the same size, indentifies locations of nan entries, and cuts these indexes from all lists"""   
@@ -789,7 +880,7 @@ def free_colorbar(vmin,vmax,label="no label selected",coltype="bwr"):
     cpick.set_array([])
     plt.colorbar(cpick,label=label)
 
-def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec.cm-3",save=False,save_filename="nofilenamespecified"):
+def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec/cm2",save=False,save_filename="nofilenamespecified"):
     #Define basemap
     m = prepare_map(map_box)
     color_index = colors.Normalize(vmin,vmax)
@@ -810,7 +901,7 @@ def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=
         fig.savefig(save_filename)
     plt.show()
 
-def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec.cm-3",save=False,save_filename="nofilenamespecified"):
+def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec/cm2",save=False,save_filename="nofilenamespecified"):
     """Draws dots on a map at lat/lon positions, color-coded based on values"""
     m = prepare_map(map_box)
     x, y = m(lon,lat)
@@ -831,14 +922,28 @@ def geo_select_regional(region_list,text_to_match,*datasets):
         output.append(selected)        
     return(tuple(output))
     
-def geo_select_regional_i(region_list,text_to_match,ida):
+def geo_select_regional_i(region_list,text_to_match,da):
     """Reduces datasets down to only where the associated region matches a given text string"""
     selector = []
     for region in region_list :  
         selector.append(region in text_to_match)
     
-    ida.filter_all(selector)      
-    return(ida)    
+    da.filter_all(selector)      
+    return(da)    
+
+def da_select_by_match(field_to_match,val_to_match,da):
+    """Reduces data_all object down to where a dataset matches a value"""
+    #useful for filtering by region
+    
+    if type(val_to_match) != list: #if it's a single value, make 1-member list
+        list_to_match = [val_to_match]
+    else:
+        list_to_match = val_to_match
+    
+    selector = [ da.data[field_to_match][i] in list_to_match
+                 for i in range(0,len(da.data[field_to_match])) ]
+    da.filter_all(selector)
+    return(da)
 
 #def in_box(lat,lon,north,south,east,west):
 #    if lat < south :
@@ -856,17 +961,22 @@ def geo_select_rectangle(lat,lon,geo_selection,*datasets):
     #[northbound,southbound,eastbound,westbound] = geo_selection
     output = []
     for dataset in datasets :
-        selected = [dataset [i] for i in range(0,len(dataset)) if geo_selection.in_box(lat[i],lon[i]) ]
+        selected = [dataset [i] for i in range(0,len(dataset)) if geo_selection.within(lat[i],lon[i]) ]
         output.append(selected)
     return(tuple(output))
     
 def geo_select_rectangle_i(geo_selection,ida):
     """Reduces datasets down to only those points within designated bounds"""
 
-    selector = geo_selection.in_box(ida.lat,ida.lon)
+    selector = geo_selection.within(ida.lat,ida.lon)
     ida.filter_all(selector)
     return(ida)    
 
+def da_select_by_shape(select_shape,da):
+    """Reduces data_all objects down to only those points within designated bounds"""
+    selector = select_shape.within(da.lat,da.lon)
+    da.filter_all(selector)
+    return(da)
     
 def geo_select_circle(lat,lon,geo_selection,*datasets):
     """Reduces datasets down to only those points within a specified radius of a specified point"""
@@ -880,6 +990,7 @@ def geo_select_circle(lat,lon,geo_selection,*datasets):
         selected = [dataset[i] for i in range(0,len(dataset)) if distances[i] <= radius ]
         output.append(selected)
     return(tuple(output))
+      
     
 def geo_select_circle_i(geo_selection,ida):
     """Reduces datasets down to only those points within a specified radius of a specified point"""
@@ -1089,10 +1200,41 @@ def create_binned_set(ida,map_box,xdim,ydim):
     geos_VC_stdev_binned = \
         binner(lat,lon,geos_VC,map_box,stat="stdev",xdim=xdim,ydim=ydim)
 
-    return(lat_binned,lon_binned,xedges,yedges,index_map,
-           sat_VC_mean_binned,sat_VC_stdev_binned,sat_VC_count_binned,
-           sat_DVC_mean_binned,
-           geos_VC_mean_binned,geos_VC_stdev_binned)
+    #push these lists into bda
+    vals         = [sat_VC_mean_binned,
+                    sat_VC_stdev_binned,
+                    sat_VC_count_binned,
+                    sat_DVC_mean_binned,
+                    geos_VC_mean_binned,
+                    geos_VC_stdev_binned]
+    names        = ["sat_VC_mean",
+                    "sat_VC_stdev",
+                    "sat_VC_count",
+                    "sat_DVC_mean",
+                    "geos_VC_mean",
+                    "geos_VC_stdev"]
+    descriptions = ["Mean satellite vertical column",
+                    "Standard deviation of satellite vertical column",
+                    "Number of observations in bin",
+                    "Mean error in satellite vertical column",
+                    "Mean modelled vertical column",
+                    "Standard deviation of modelled vertical column"]
+    units        = ["molec/cm2",
+                    "molec/cm2",
+                    ""          ,
+                    "molec/cm2",
+                    "molec/cm2",
+                    "molec/cm2"]
+    bda = bin_all(lat_binned,lon_binned)
+    for i in range(0,len(names)):
+        bda.data[names[i]] = bnd(vals[i],names[i],description=descriptions[i])
+        bda.data[names[i]].unit = units[i]
+    
+    bda.meta["Data type"] = "Binned data"
+    bda.meta["Area"] = map_box
+    bda.meta["Binning dimensions"] = [xdim,ydim]
+    
+    return(bda)
 
 def load_regiondata(filename,states=True):
     """Reads a csv file which reports the country (and, optionally, the state) on a grid"""
@@ -1157,12 +1299,11 @@ def region_matcher(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
     else:
         return(country_out)
 
-def save_pickle_i(ida,
-                  save_path=None,prefix=None,suffix="_2.p"):
-    """A routine to save individual data"""
+def save_pickle(da,save_path=None,prefix=None,suffix="_x.p"):
+    """A routine to save a data_all object"""
     
     if save_path == None:
-        print "Enter path for pickles to saved to (blank entry for script folder):"
+        print "Enter path (not filename) for pickles to saved to (blank entry for script folder):"
         save_path = raw_input("-->")
 
         #add in a final slash if the user has missed it
@@ -1180,48 +1321,8 @@ def save_pickle_i(ida,
     
     save_location = save_path+pickle_name
     
-    pickle.dump(ida,open(save_location,"wb"))
-    print "Pickle saved to %s" %save_location
-        
-def save_pickle_b(lat_binned,lon_binned,
-                 sat_VC_mean_binned,sat_VC_stdev_binned,
-                 sat_DVC_mean_binned,
-                 geos_VC_mean_binned,geos_VC_stdev_binned,
-                 NDVI_binned,
-                 country_binned,state_binned,index_map2,
-                 save_path=None,prefix=None,suffix="_binned.p"):
-    """A routine to save binned data"""
-    
-    if save_path == None:
-        print "Enter path for pickles to saved to (blank entry for script folder):"
-        save_path = raw_input("-->")
-
-        #add in a final slash if the user has missed it
-        #if it's blank it defaults to the script directory
-        if save_path != "": 
-            if not save_path.endswith("/"):
-                save_path =save_path + "/"
-    
-    if prefix == None:
-        print "Enter name for pickle file. A suffix of %s will be appended automatically:" %suffix
-        pickle_name = raw_input("-->")
-        pickle_name = pickle_name+suffix
-    else:
-        pickle_name = prefix+suffix
-    
-    save_location = save_path+pickle_name
-
-
-    #"None" is space for NDVI data             
-    pickle.dump((lat_binned,lon_binned,
-                 sat_VC_mean_binned,sat_VC_stdev_binned,
-                 sat_DVC_mean_binned,
-                 geos_VC_mean_binned,geos_VC_stdev_binned,
-                 NDVI_binned,
-                 country_binned,state_binned,
-                 index_map2),
-                 open(save_location,"wb"))
-                 
+    pickle.dump(da,open(save_location,"wb"))
+    print "Pickle saved to %s" %save_location                 
     
 def select_a_var(var_names,vartuple,purpose="",numbers_only=True):
     """menu to select one of many variables supplied in a tuple"""
@@ -1684,6 +1785,42 @@ def plot_geos_chem(geos_chem_var_dict):
                         vmin=min(data1D),vmax=max(data1D),
                         lab=geos_chem_var.unit,
                         save=False,save_filename="nofilenamespecified")
+
+def stats_from_da(da):
+    """calculate simple stats from a data_all object"""
       
-    
+    while True: #allow for break to exit
+        s1_menu_title = "Which dataset do you wish to calculate statistics for?"
+        [s1_menu_text,s1_answers_dict] = da.make_menu()
+        s1_menu_choice = basic_menu(s1_menu_title,
+                                    s1_menu_text,
+                                    quit_option=True)
+        if s1_menu_choice == "Z":
+            break
+        
+        data_key = s1_answers_dict[s1_menu_choice]
+        
+        while True: #allow for break to exit   
+            s2_menu_title = "Which statistical operator do you want to compute?"
+            s2_menu_text=[["1","mean"],
+                           ["2","standard deviation"],
+                           ["3","count"]]
+            s2_menu_choice= basic_menu(s2_menu_title,
+                                       s2_menu_text,
+                                       quit_option=True)
+            if s2_menu_choice == "Z":
+                break
+            
+            #a cumbersome but robust way of setting stat_choice_text
+            for pair in s2_menu_text:
+                if pair[0] == s2_menu_choice:
+                    stat_choice_text = pair[1]
+            
+            stat = calc_statistic(da.data[data_key].val,s2_menu_choice)
+            
+            print "Dataset: %s" %da.data[data_key].description
+            print "Statistic: %s" %stat_choice_text
+            print "Result: %g" %stat
+            
+            _ = raw_input("Press enter to continue-->")    
     
