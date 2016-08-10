@@ -112,8 +112,8 @@ class circle:
                return(True)
            else:
                return(False)    
-class ind:
-    """A class to hold one set of 1D individual data"""
+class d:
+    """A class to hold one set of 1D data"""
     
     def __init__(self,val,name,description=""):
         self.unit = ""
@@ -133,39 +133,20 @@ class ind:
         
     def add_meta(self,key,value):
         self.meta[key]= value
+           
 
-class bnd:
-    """A class to hold one set of binned data"""
+class d_all:
+    """A class to hold a load of d objects"""
     
-    def __init__(self,val,name,description=""):
-        self.unit = ""
-        self.name = name
-        self.val = val
-        self.meta = {}
-        if description == "":
-            self.description = name
-        else:
-            self.description = description
-    
-    def __str__(self):
-        return(self.name)
-    
-    #def __repr__(self): #not sure this is good code
-    #    return self.val    
-        
-    def add_meta(self,key,value):
-        self.meta[key]= value
-            
-
-class ind_all:
-    """A class to hold all the individual data"""
-    
-    def __init__(self,lat,lon,time):
+    def __init__(self,lat,lon,time=None):
         """Set the core data lists when setting up"""
         self.lat  = lat
         self.lon  = lon
-        self.time = time
         self.data = {}
+        self.meta = {}
+        #the time option is optional 
+        #(will be used for indiv but not binned  
+        self.time = time
     
     def valid(self):
         """Checks all lists are same length"""
@@ -173,8 +154,9 @@ class ind_all:
         x  = len(self.lat)        
         if x != len(self.lon):
             return False
-        if x != len(self.time):
-            return False
+        if self.time != None:
+            if x != len(self.time):
+                return False
             
         #now go through every val in the data dictionary
         for key in self.data:
@@ -204,94 +186,31 @@ class ind_all:
         for key in self.data:            
             self.data[key].val = [self.data[key].val[i] for i in all_indexes if filter_list[i]]
 
-    def make_menu(self):
+    def make_menu(self,num_only=False):
         """Create menu options of all the datasets in data"""
         
         menu_text = []
         answers_dict = {}
         iii = 0
         for key in self.data:
-            menu_text.append([str(iii),self.data[key].description])
-            answers_dict[str(iii)] = key
-            iii += 1
-        
-        return(menu_text,answers_dict)
-
-class bin_all:
-    """A class to hold all the binned data"""
-    
-    #basically this is the same as ind_all but we don't have time
-    
-    def __init__(self,lat,lon):
-        """Set the core data lists when setting up"""
-        self.lat  = lat
-        self.lon  = lon
-        
-        #self.time = time
-        self.data = {}
-        self.meta = {}
-    
-    def valid(self):
-        """Checks all lists are same length"""
-        #first check lat, lon, time
-        x  = len(self.lat)        
-        if x != len(self.lon):
-            return False
-        #if x != len(self.time):
-        #    return False
-            
-        #now go through every val in the data dictionary
-        for key in self.data:
-            if x != len(self.data[key].val):
-                return False
-        
-        #if we get here, things are OK
-        return True
-    
-    def list_all_datasets(self):
-        list_of_datasets = []
-        for key in self.data:
-            list_of_datasets.append(self.data[key].description)
-        return(list_of_datasets)
-        
-    def filter_all(self,filter_list):
-        """For filer_list the same length as the data, keeps only datapoints where filter_list == True"""
-        
-        all_indexes = range(0,len(self.lat))
-        
-        #core sets
-        self.lat = [self.lat[i]  for i in all_indexes if filter_list[i]]
-        self.lon = [self.lon[i]  for i in all_indexes if filter_list[i]]
-        #self.time= [self.time[i] for i in all_indexes if filter_list[i]]
-        
-        #data sets
-        for key in self.data:            
-            self.data[key].val = [self.data[key].val[i] for i in all_indexes if filter_list[i]]
-
-    def make_menu(self):
-        """Create menu options of all the datasets in data"""
-        
-        menu_text = []
-        answers_dict = {}
-        iii = 0
-        for key in self.data:
-            menu_text.append([str(iii),self.data[key].description])
-            answers_dict[str(iii)] = key
-            iii += 1
+            if isinstance(self.data[key].val[0],Number) or not(num_only):
+                menu_text.append([str(iii),self.data[key].description])
+                answers_dict[str(iii)] = key
+                iii += 1
         
         return(menu_text,answers_dict)
 
 def build_ida(ULN,lat,lon,time,geos_VC,sat_VC,sat_DVC,AMF):
-    """Creates an ind_all object containing ind objects of basic data"""
-    ida = ind_all(lat,lon,time)
-    ida.data['ULN'] = ind(ULN,'ULN','Unique Line Number')
-    ida.data['geos_VC'] = ind(geos_VC,'geos_VC','GEOS Chem modelled vertical column')
+    """Creates an d_all object containing ind objects of basic data"""
+    ida = d_all(lat,lon,time=time)
+    ida.data['ULN'] = d(ULN,'ULN','Unique Line Number')
+    ida.data['geos_VC'] = d(geos_VC,'geos_VC','GEOS Chem modelled vertical column')
     ida.data['geos_VC'].unit = 'molec/cm2'
-    ida.data['sat_VC'] = ind(sat_VC,'sat_VC','Observed satellite column')
+    ida.data['sat_VC'] = d(sat_VC,'sat_VC','Observed satellite column')
     ida.data['sat_VC'].unit = 'molec/cm2'
-    ida.data['sat_DVC'] = ind(sat_DVC,'sat_DVC','Uncertainty in observed satellite column')
+    ida.data['sat_DVC'] = d(sat_DVC,'sat_DVC','Uncertainty in observed satellite column')
     ida.data['sat_DVC'].unit = 'molec/cm2'
-    ida.data['AMF'] = ind(AMF,'AMF','Air mass factor')
+    ida.data['AMF'] = d(AMF,'AMF','Air mass factor')
     return(ida)
 
 
@@ -1095,12 +1014,7 @@ def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha
 
     plt.title(title)
     plt.show()
-
-def save_pickle_indiv(name,ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time):
-        print("Pickling individual data")
-        pikname = name + "_1.p"
-        pickle.dump( (ULN,sat_VC,sat_DVC,geos_VC,lat,lon,time), open(pikname,"wb") )
-        
+       
 def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=False):
     """Divides the region into a grid, and computes a statistic for the values falling within it"""
 
@@ -1225,9 +1139,9 @@ def create_binned_set(ida,map_box,xdim,ydim):
                     "molec/cm2",
                     "molec/cm2",
                     "molec/cm2"]
-    bda = bin_all(lat_binned,lon_binned)
+    bda = d_all(lat_binned,lon_binned)
     for i in range(0,len(names)):
-        bda.data[names[i]] = bnd(vals[i],names[i],description=descriptions[i])
+        bda.data[names[i]] = d(vals[i],names[i],description=descriptions[i])
         bda.data[names[i]].unit = units[i]
     
     bda.meta["Data type"] = "Binned data"

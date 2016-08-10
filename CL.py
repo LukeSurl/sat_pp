@@ -5,7 +5,6 @@ from CL_corrections import *
 from CL_oversampler import *
 import os
 from datetime import datetime as dt
-import copy
 
 #"shorthand" variables
 yesno = [["Y","Yes"],["N","No"]] 
@@ -73,7 +72,7 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 
 if initial_choice == "1":
     print "Loading default options"       
-    current_pickle =   '/home/users/lsurl/CL/pickles/tester2'
+    current_pickle =   '/home/users/lsurl/CL/pickles/tester3'
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     
     #ida is the main data holder for all individual data
@@ -262,18 +261,18 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                    ida.lat,ida.lon)
                                    
                 #add these to ida properly
-                ida.data['country'] = ind(country,'country','Country observation falls within')
+                ida.data['country'] = d(country,'country','Country observation falls within')
                 del country
-                ida.data['state'  ] = ind(state  ,'state'  ,'State observation falls within')
+                ida.data['state'  ] = d(state  ,'state'  ,'State observation falls within')
                 del state
                                    
                 print "Assigning country+state to binned data points"
                 (country_binned,state_binned) =\
                     region_matcher(csv_lat,csv_lon,csv_country,csv_state,
                                    bda.lat,bda.lon)
-                bda.data["country"] = bnd(country_binned,"country","Country")
+                bda.data["country"] = d(country_binned,"country","Country")
                 del country_binned
-                bda.data["state"  ] = bnd(state_binned  ,"state"  ,"State"  )
+                bda.data["state"  ] = d(state_binned  ,"state"  ,"State"  )
                 del state_binned
                 print "Done. Do you wish to save these data as new pickles? Y/N"
                 option = basic_menu("Done. Do you wish to save"
