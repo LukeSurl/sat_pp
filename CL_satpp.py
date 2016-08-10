@@ -862,9 +862,11 @@ def da_select_by_match(field_to_match,val_to_match,da):
         list_to_match = [val_to_match]
     else:
         list_to_match = val_to_match
+        
+    len_da = len(da.lat)
     
-    selector = [ da.data[field_to_match][i] in list_to_match
-                 for i in range(0,len(da.data[field_to_match])) ]
+    selector = [ da.data[field_to_match].val[i] in list_to_match
+                 for i in range(0,len_da) ]
     da.filter_all(selector)
     return(da)
 
