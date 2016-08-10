@@ -5,6 +5,7 @@ from CL_corrections import *
 from CL_oversampler import *
 import os
 from datetime import datetime as dt
+import copy
 
 #"shorthand" variables
 yesno = [["Y","Yes"],["N","No"]] 
@@ -72,7 +73,7 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 
 if initial_choice == "1":
     print "Loading default options"       
-    current_pickle =   '/home/users/lsurl/CL/pickles/tester3'
+    current_pickle =   '/home/users/lsurl/CL/pickles/2014-11'
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     
     #ida is the main data holder for all individual data
@@ -139,10 +140,20 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     
     elif top_level_menu_choice == "A": #load geos chem data
         geos_dict = load_geosfile(current_geosfolder,file_tag="trac_avg")
+        option = basic_menu("Done. Do you wish to associate"
+                            " these data with the observations?",
+                            [["Y","yes"],["N","no"]],quit_option=False)
+        if option == "Y":
+            associate_ind_geos(ida,geos_dict)
     
     elif top_level_menu_choice == "T": #load psuedo-satellite data
         geos_dict = load_geosfile(current_geosfolder,file_tag="ts_")
-    
+        option = basic_menu("Done. Do you wish to associate"
+                            " these data with the observations?",
+                            [["Y","yes"],["N","no"]],quit_option=False)
+        if option == "Y":
+            ida = associate_ind_geos(ida,geos_dict)
+                
     elif top_level_menu_choice == "K": #plot geos chem data
         plot_geos_chem(geos_dict)
     
@@ -214,9 +225,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     change_var(corrections_folder,"Pacific corrections folder")
             elif lcnfd_menu_choice == "3": #switch correction type
                 if corr_type == "basic":
-                    corr_type == "advanced"
+                    corr_type = "advanced"
                 elif corr_type == "advanced":
-                    corr_type == "basic"
+                    corr_type = "basic"
+
             elif lcnfd_menu_choice == "4": #change dates
                 new_s_year = change_var(filtered_startdate.year,"Start time year")
                 new_s_month= change_var(filtered_startdate.month,"Start time month")

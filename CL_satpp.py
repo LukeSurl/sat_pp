@@ -21,6 +21,7 @@ from os.path import isfile, join
 import sys
 from bpch import bpch
 from dateutil.relativedelta import relativedelta
+import copy
 
 def lat_str(y):
     """Returns string for latitude"""
@@ -180,7 +181,8 @@ class d_all:
         #core sets
         self.lat = [self.lat[i]  for i in all_indexes if filter_list[i]]
         self.lon = [self.lon[i]  for i in all_indexes if filter_list[i]]
-        self.time= [self.time[i] for i in all_indexes if filter_list[i]]
+        if self.time != None:
+            self.time= [self.time[i] for i in all_indexes if filter_list[i]]
         
         #data sets
         for key in self.data:            
@@ -222,13 +224,15 @@ class geos_data():
     def __init__(self):
        self.data = [] #the data
        self.time = [] #time of each block of data
+       self.time_bounds = [] #upper and lower bounds of time-relevancy
        self.lat = [] #the latitudes
        self.lon = [] #the longitudes
        
        
-    def add_data(self, new_data, new_time):
+    def add_data(self, new_data, new_time, new_time_bounds=None):
         self.data.append(new_data)
         self.time.append(new_time)
+        self.time_bounds.append(new_time_bounds)
     
     def set_name(self, name): #to name the dataset (name in geos output)
         self.name = name
@@ -1527,18 +1531,19 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg"):
         print "Write the name of a variable to add it to the list of variables to read"
         print "To see the entire list of variables, write 'V'"
         print "To see the different groups of variables, write 'G'"
-        print "To see a list of all variables within a group, write the group name followed by a *"
+        print "To see a list of all variables within a group (and, optionally, add them all), write the group name followed by a *"
         print "You have currently chosen the following variables:"
         print using_variables_list
+        print "To remove an item from this list, type @ followed by its name"
         print "To clear this list, type 'C'"
         print "Latitude, longitude and time variables will be used automatically"
         print "Once this list is complete, type 'Y' to proceed"
-        option = raw_input("-->").upper()
-        if   option == "V":
+        option = raw_input("-->")
+        if   option.upper() == "V":
             for variable in variables_list:
                 print variable
             raw_input("Press enter to continue-->")
-        elif option == "G":
+        elif option.upper() == "G":
             groups = list(f.groups)
             for group in groups:
                 print group
@@ -1550,14 +1555,25 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg"):
             else:
                 for variable in group_variables_list:
                     print variable
-            raw_input("Press enter to continue-->")
-        elif option == "Y":
+            add_all = raw_input("To add all of these variables, type A, otherwise, press enter to continue-->").upper()
+            if add_all == "A":
+                for variable in group_variables_list:
+                     if not(option in using_variables_list): #don't allow duplication 
+                        using_variables_list.append(variable)
+        elif option.upper() == "Y":
             done = True
-        elif option == "C":
+        elif option.upper() == "C":
             using_variables_list = []
+        elif option.startswith("@"):
+            try:
+                using_variables_list.remove(option[1:])
+            except ValueError:
+                print option[1:] + " is not in the list"
+                raw_input("Press enter to continue-->")
         else: #if adding a variable
             if option in variables_list:
-                using_variables_list.append(option)
+                if not(option in using_variables_list): #don't allow duplication 
+                    using_variables_list.append(option)
             else:
                 print "%s is not a valid variable" %option
                 raw_input("Press enter to continue-->")
@@ -1579,9 +1595,15 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg"):
         geos_datasets.append(geos_data())
         geos_datasets[i].name = variable #set machine name of variables
         #prompt the user for "human name"
-        print "Please enter a short 'human readable' name for the variable %s" %variable
-        geos_datasets[i].human_name = raw_input("-->")
+        print "Please enter a short 'human readable' name for the variable %s, (press enter to just use '%s'" %(variable,variable)
+        a = raw_input("-->")
+        if a == "":
+            geos_datasets[i].human_name = variable
+        else:
+            geos_datasets[i].human_name = a
+        del a
         i += 1
+        
     del i
         
     
@@ -1608,7 +1630,9 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg"):
             #set units and lat/lon
             #we might end up setting these multiple times but
             #that's not a problem big deal
-            geos_dataset.unit = this_data.unit
+            geos_dataset.unit = this_data.units
+            tau_time_bounds = f.variables['time_bounds']
+            dt_time_bounds = [ [tau_to_datetime(a),tau_to_datetime(b)] for [a,b] in tau_time_bounds]
             geos_dataset.set_lat_lon(lat,lon)
             
             if len(this_data[0]) != 1: #if there is vertical information
@@ -1616,7 +1640,7 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg"):
             else:
                 print "Variable is 2D"
             for t in range(0,num_times):                
-                geos_dataset.add_data(this_data[t][0],time[t])
+                geos_dataset.add_data(this_data[t][0],time[t],new_time_bounds=dt_time_bounds[t])
     
     print "Reading geos_chem variables done"
     #OK. let's turn this into a dictionary
@@ -1737,4 +1761,80 @@ def stats_from_da(da):
             print "Result: %g" %stat
             
             _ = raw_input("Press enter to continue-->")    
+    
+    
+def match_index(bounds,item_to_match):
+    """Finds the first index where item_to_match is within bounds"""
+    #bounds -> list of pairs [lower,higher] of values
+    for i in range(0,len(bounds)):
+        if bounds[i][0] <= item_to_match < bounds[i][1]:
+            return(i)
+    #if no match
+    return(None)
+
+
+def associate_ind_geos(ida,geos_dict):
+    """associates geos_chem data with points in ida"""
+    
+    ida_len = len(ida.lat)
+    
+    #will assume that all data in geos_dict has the same
+    #lat/lon/time arrangement
+    
+    geos_keys = geos_dict.keys()
+    
+    geos_lat = geos_dict[geos_keys[0]].lat    
+    geos_lat_bounds = []
+    for i in range(0,len(geos_lat)):
+        geos_lat_bounds.append([geos_lat[i]-0.5*geos_dict[geos_keys[0]].lat_spacing,
+                                geos_lat[i]+0.5*geos_dict[geos_keys[0]].lat_spacing]
+                              )
+    
+    geos_lon = geos_dict[geos_keys[0]].lon    
+    geos_lon_bounds = []
+    for j in range(0,len(geos_lon)):
+        geos_lon_bounds.append([geos_lon[j]-0.5*geos_dict[geos_keys[0]].lon_spacing,
+                                geos_lon[j]+0.5*geos_dict[geos_keys[0]].lon_spacing]
+                              )
+                    
+    
+    #time bounds should already be in the file
+    geos_time = geos_dict[geos_keys[0]].time
+    geos_time_bounds = geos_dict[geos_keys[0]].time_bounds
+    
+    #Now, for every point in ida, find the lat,lon and time indexes
+    #return None if there's no match
+    match_indexes = []
+    for p in range(0,ida_len):
+        
+        match_indexes.append(
+            [match_index(geos_time_bounds,ida.time[p]),
+             match_index(geos_lat_bounds ,ida.lat[p] ),
+             match_index(geos_lon_bounds ,ida.lon[p] )]
+             )
+    
+    #now add these data to ida
+    success_match = 0
+             
+    for geos_key in geos_keys:
+        this_val = []
+        for p in range(0,ida_len):
+            if None in match_indexes[p]: #if there's no matching point
+                this_val.append(None)
+            else:
+                this_val.append(geos_dict[geos_key].data[ match_indexes[p][0] ][ match_indexes[p][1] ][ match_indexes[p][2] ])
+                success_match += 1
+        new_d = d(this_val,
+                  geos_dict[geos_key].name,
+                  geos_dict[geos_key].human_name)
+        new_d.unit = geos_dict[geos_key].unit
+        new_d.add_meta('Source','GEOS Chem output associated with core dataset')
+        ida.data[geos_key] = copy.deepcopy(new_d) #add to ida
+        del this_val
+        del new_d 
+    
+    print "Matched %i out of %i datapoints" %(success_match,ida_len)
+    _=raw_input("Press enter to continue-->")    
+    return(ida)
+    
     

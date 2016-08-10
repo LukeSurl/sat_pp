@@ -10,6 +10,7 @@ from datetime import datetime as dt
 from datetime import timedelta as td
 import numpy as np
 from CL_satpp import *
+import copy
 
 def is_in_range(startdate,enddate,submitdate):
     """True/False: is submitdate between startdate and enddate"""
