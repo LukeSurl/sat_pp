@@ -1807,6 +1807,7 @@ def associate_ind_geos(ida,geos_dict):
     #Now, for every point in ida, find the lat,lon and time indexes
     #return None if there's no match
     match_indexes = []
+    success_match = 0
     for p in range(0,ida_len):
         
         match_indexes.append(
@@ -1814,9 +1815,10 @@ def associate_ind_geos(ida,geos_dict):
              match_index(geos_lat_bounds ,ida.lat[p] ),
              match_index(geos_lon_bounds ,ida.lon[p] )]
              )
-    
+        if None in match_indexes[p]:
+            success_match += 1
     #now add these data to ida
-    success_match = 0
+    
              
     for geos_key in geos_keys:
         this_val = []
@@ -1825,7 +1827,7 @@ def associate_ind_geos(ida,geos_dict):
                 this_val.append(None)
             else:
                 this_val.append(geos_dict[geos_key].data[ match_indexes[p][0] ][ match_indexes[p][1] ][ match_indexes[p][2] ])
-                success_match += 1
+                
         new_d = d(this_val,
                   geos_dict[geos_key].name,
                   geos_dict[geos_key].human_name)
