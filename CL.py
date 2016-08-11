@@ -411,7 +411,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 #dom = dots on map
                 dom_menu_choice = ""
                 while dom_menu_choice != "Z":
-                    dom_menu_title = "Plotting map of binned data\n"\
+                    dom_menu_title = "Plotting map of data\n"\
                                      "Loaded pickle and global options will be used\n"\
                                      "Print which variable?"
                     [dom_menu_text,dom_answers_dict] = ida.make_menu()
