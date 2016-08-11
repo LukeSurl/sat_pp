@@ -477,11 +477,11 @@ def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2"):
     while not(choice.upper() in ["P","S","Z"]): #menu-leaving options       
         os.system('clear')
         print "Preparing to map data"
-        print "Dataset to plot  = " + dataset_name
-        print "Title for figure = " + title
-        print "Colourbar minimum = " + str(vmin)
-        print "Colourbar maximum = " + str(vmax)
-        print "Units text        = " + unit
+        print "Dataset to plot  = %s" %dataset_name
+        print "Title for figure = %s" %title
+        print "Colourbar minimum = %g" %vmin
+        print "Colourbar maximum = %g" %vmax
+        print "Units text        = %s" %unit
         print "OPTIONS:"
         print "[T] Change title"
         print "[C] Change colourbar min/max"
@@ -807,14 +807,14 @@ def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=
     #Define basemap
     m = prepare_map(map_box)
     color_index = colors.Normalize(vmin,vmax)
-    (lat,lon,var) = stripallnans(lat,lon,var) #cut out nan values (stops crashes)    
+    #(lat,lon,var) = stripallnans(lat,lon,var) #cut out nan values (stops crashes)    
     for i in range(0,len(lat)):
         this_w = lon[i]-xdim/2
         this_e = lon[i]+xdim/2
         this_s = lat[i]-ydim/2
         this_n = lat[i]+ydim/2
         this_c = var[i]
-        if math.isnan(this_c):
+        if math.isnan(this_c) or math.isnan(this_w) or math.isnan(this_e) or math.isnan(this_s) or math.isnan(this_n):
             continue #don't plot if there's no data
         draw_screen_poly( [this_s,this_n,this_n,this_s],[this_w,this_w,this_e,this_e], m, this_c, color_index )        
     plt.title(title)
@@ -1312,7 +1312,27 @@ def two_var_comparison(ida):
                     
                     y_var_errs = get_errors(ida,y_key)
                     if y_var_errs == "Z":
-                        continue    
+                        continue
+                        
+                #Need to make sure there are no nans in the data going in.
+                if type_of_comparison in ["1","2"]:
+                    (x_var,y_var) = \
+                            stripallnans(x_var,y_var)
+                else:                        
+                    if x_var_errs != None:
+                        if y_var_errs != None:
+                            (x_var,y_var,x_var_errs,y_var_errs) = \
+                            stripallnans(x_var,y_var,x_var_errs,y_var_errs)
+                        else:
+                            (x_var,y_var,x_var_errs) = \
+                            stripallnans(x_var,y_var,x_var_errs)
+                    else:
+                        if y_var_errs != None:
+                            (x_var,y_var,y_var_errs) = \
+                            stripallnans(x_var,y_var,y_var_errs)
+                        else:
+                            (x_var,y_var) = \
+                            stripallnans(x_var,y_var)                                                    
                                                                 
                 if type_of_comparison == "1":
                     error_bar_scatter(x_var,y_var,

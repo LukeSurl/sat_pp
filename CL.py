@@ -73,7 +73,7 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 
 if initial_choice == "1":
     print "Loading default options"       
-    current_pickle =   '/home/users/lsurl/CL/pickles/2014-11'
+    current_pickle =   '/home/users/lsurl/CL/pickles/2014-11-B'
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     
     #ida is the main data holder for all individual data
@@ -342,7 +342,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ubd_menu_title = "USING BINNED DATA"
             ubd_menu_text  = [
                 ["1","Plot gridded data on map"],
-                ["2","Compute basic statistics"]
+                ["2","Compute basic statistics"],
+                ["3","Compare datasets"]
                 ]
             
             ubd_menu_choice = basic_menu(ubd_menu_title,
@@ -361,10 +362,12 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                             bmm_menu_text,
                                             quit_option=True)
                     if bmm_menu_choice != "Z": #unless we're quitting
-                        data_key = bmm_answers_dict[bmm_menu_choice]
+                        data_key = bmm_answers_dict[bmm_menu_choice]                     
+                        
                         (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) =\
                             map_preplot_menu(bda.data[data_key].description,
-                            vmin=0,vmax=3.e16,
+                            vmin=np.nanmin(bda.data[data_key].val),
+                            vmax=np.nanmax(bda.data[data_key].val),
                             unit=bda.data[data_key].unit)
                     else: #go up a menu
                         break
@@ -385,7 +388,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     
             elif ubd_menu_choice == "2": #binned statisics
                 stats_from_da(bda)
-                        
+                
+            elif ubd_menu_choice == "3": #compare_datasets 
+                two_var_comparison(bda)
+                     
     elif top_level_menu_choice == "2": #Indiv data
         #uid = use individual data
         uid_menu_choice = ""
