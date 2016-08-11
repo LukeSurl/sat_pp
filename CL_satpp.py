@@ -1818,10 +1818,13 @@ def associate_ind_geos(ida,geos_dict):
              )
         if not(None in match_indexes[p]):
             success_match += 1 
-    #now add these data to ida
     
-             
+    
+    print "Matched %i out of %i datapoints" %(success_match,ida_len)
+    
+    #now add these data to ida         
     for geos_key in geos_keys:
+        print "Associating "+geos_key
         this_val = []
         for p in range(0,ida_len):
             if None in match_indexes[p]: #if there's no matching point
@@ -1838,8 +1841,56 @@ def associate_ind_geos(ida,geos_dict):
         del this_val
         del new_d 
     
-    print "Matched %i out of %i datapoints" %(success_match,ida_len)
+    
     _=raw_input("Press enter to continue-->")    
     return(ida)
     
-    
+def bin_extra(ida,bda):
+    """Allows the user to create a binned dataset additional to the ones automatically created"""
+    #useful for associated sets.
+    while True: #allow for break to exit
+        be1_menu_title = "Which dataset do you wish to bin?"
+        [be1_menu_text,be1_answers_dict] = ida.make_menu()
+        be1_menu_choice = basic_menu(be1_menu_title,
+                                    be1_menu_text,
+                                    quit_option=True)
+        if be1_menu_choice == "Z":
+            break    
+            
+        data_key = be1_answers_dict[be1_menu_choice]
+        while True: #allow for break to exit   
+            be2_menu_title = "Which statistical operator do you want to compute for each bin?"
+            be2_menu_text=[["1","mean"],
+                           ["2","standard deviation"],
+                           ["3","count"]]
+            be2_menu_choice= basic_menu(be2_menu_title,
+                                       be2_menu_text,
+                                       quit_option=True)
+            if be2_menu_choice == "Z":
+                break
+            
+            #a cumbersome but robust way of setting stat_choice_text
+            for pair in be2_menu_text:
+                if pair[0] == be2_menu_choice:
+                    stat_choice_text = pair[1]
+                    
+            this_binned = \
+               binner(ida.lat,ida.lon,
+                      ida.data[data_key].val,
+                      bda.meta["Area"],
+                      stat=stat_choice_text,
+                      xdim=bda.meta["Binning dimensions"][0],
+                      ydim=bda.meta["Binning dimensions"][1])
+               
+            this_name = ida.data[data_key].name
+            this_description = ida.data[data_key].description
+            bda.data[this_name] = d(this_binned,this_name,description=this_description+": "+stat_choice_text)
+            #units are same as in ida, unless this is a count (then it's unitless)
+            if stat_choice_text in ["mean","standard deviation"]:
+                bda.data[this_name].unit = ida.data[data_key].unit
+            else:
+                bda.data[this_name].unit = ""
+            
+            return(bda)           
+        
+            

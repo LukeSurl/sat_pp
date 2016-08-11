@@ -115,6 +115,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["C","Generate new dataset from filtered data and pacific corrections"],
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
+            ["B","Bin additional datasets"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
             ["A","Load GEOS Chem trac_avg data"],
@@ -153,6 +154,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                             [["Y","yes"],["N","no"]],quit_option=False)
         if option == "Y":
             ida = associate_ind_geos(ida,geos_dict)
+            
+    elif top_level_menu_choice == "B": #Bin additional datasets
+        bda = bin_extra(ida,bda)
                 
     elif top_level_menu_choice == "K": #plot geos chem data
         plot_geos_chem(geos_dict)
