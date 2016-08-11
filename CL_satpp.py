@@ -1275,7 +1275,7 @@ def two_var_comparison(ida):
             break
         x_key =      tcv1_answers_dict[tvc1_menu_choice]    
         x_var =      ida.data[x_key].val
-        x_var_name = ida.data[x_key].description
+        x_var_name = ida.data[x_key].description+" ("+ida.data[x_key].unit+")"
             
             
         while True:
@@ -1290,7 +1290,7 @@ def two_var_comparison(ida):
             
             y_key =      tcv2_answers_dict[tvc2_menu_choice]   
             y_var =      ida.data[y_key].val    
-            y_var_name = ida.data[y_key].description
+            y_var_name = ida.data[y_key].description+" ("+ida.data[y_key].unit+")"
             
             while True:
                 tvc3_menu_title = "Choose type of comparison:"
@@ -1402,7 +1402,7 @@ def error_bar_scatter(x_var,y_var,
     
     #if alpha (transparency) undefined, estimate a good alpha based on the dataset size
     if alpha == None:
-        alpha = float(len(x_var))**-0.4
+        alpha = float(len(x_var))**-0.6
         
     #if plotting mins and maxes are not defined, use mins and maxes of data,
     if x_min == None:
@@ -1416,7 +1416,7 @@ def error_bar_scatter(x_var,y_var,
         
     #consider all 0 error to be no errors defined    
     if x_error == None and y_error == None: #no error bars
-        plt.scatter(x_var, y_var,fmt='o',
+        plt.plot(x_var, y_var,'o',
                     alpha=alpha)
     elif x_error != None and y_error == None: #bars for x, none for y
         plt.errorbar(x_var, y_var, xerr=x_error,fmt='o',
@@ -1816,7 +1816,7 @@ def associate_ind_geos(ida,geos_dict):
              match_index(geos_lat_bounds ,ida.lat[p] ),
              match_index(geos_lon_bounds ,ida.lon[p] )]
              )
-        if None not(in match_indexes[p]):
+        if not(None in match_indexes[p]):
             success_match += 1 
     #now add these data to ida
     
