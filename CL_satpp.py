@@ -1316,50 +1316,50 @@ def two_var_comparison(ida):
                         
                 #Need to make sure there are no nans in the data going in.
                 if type_of_comparison in ["1","2"]:
-                    (x_var,y_var) = \
+                    (nonan_x_var,nonan_y_var) = \
                             stripallnans(x_var,y_var)
                 else:                        
                     if x_var_errs != None:
                         if y_var_errs != None:
-                            (x_var,y_var,x_var_errs,y_var_errs) = \
+                            (nonan_x_var,nonan_y_var,nonan_x_var_errs,nonan_y_var_errs) = \
                             stripallnans(x_var,y_var,x_var_errs,y_var_errs)
                         else:
-                            (x_var,y_var,x_var_errs) = \
+                            (nonan_x_var,nonan_y_var,nonan_x_var_errs) = \
                             stripallnans(x_var,y_var,x_var_errs)
                     else:
                         if y_var_errs != None:
-                            (x_var,y_var,y_var_errs) = \
+                            (nonan_x_var,nonan_y_var,nonan_y_var_errs) = \
                             stripallnans(x_var,y_var,y_var_errs)
                         else:
-                            (x_var,y_var) = \
+                            (nonan_x_var,nonan_y_var) = \
                             stripallnans(x_var,y_var)                                                    
                                                                 
                 if type_of_comparison == "1":
-                    error_bar_scatter(x_var,y_var,
+                    error_bar_scatter(nonan_x_var,nonan_y_var,
                                       x_error=None,y_error=None,
                                       title="Scatter plot",
                                       x_label=x_var_name,y_label=y_var_name,
-                                      x_min=np.nanmin(x_var),x_max=np.nanmax(x_var),
-                                      y_min=np.nanmin(y_var),y_max=np.nanmax(y_var))
+                                      x_min=np.nanmin(nonan_x_var),x_max=np.nanmax(nonan_x_var),
+                                      y_min=np.nanmin(nonan_y_var),y_max=np.nanmax(nonan_y_var))
                 elif type_of_comparison == "2":
                     print "Linear regression:"
-                    slope, intercept, r_value, p_value, std_err = scistats.linregress(x_var,y_var)
+                    slope, intercept, r_value, p_value, std_err = scistats.linregress(nonan_x_var,nonan_y_var)
                     print "Best-fit line: y = %+.2gx%+.2g " %(slope,intercept)
                     r_squared = r_value * r_value
                     print "R-squared    : %.4g " %r_squared
                     print "P-value      : %.4g " %p_value
                     print "Standard err : %g "   %std_err        
-                    pearsonr = scistats.pearsonr(x_var,y_var)
+                    pearsonr = scistats.pearsonr(nonan_x_var,nonan_y_var)
                     print "Pearson's correlation coefficient:\n %f, 2-tailed p-value: %f" %(pearsonr[0],pearsonr[1])
-                    polyfit = np.polyfit(x_var, y_var, 1)
+                    polyfit = np.polyfit(nonan_x_var, nonan_y_var, 1)
                     _ = raw_input("Press enter to continue-->")
                 elif type_of_comparison == "3":
-                    error_bar_scatter(x_var,y_var,
-                          x_error=x_var_errs,y_error=y_var_errs,
+                    error_bar_scatter(nonan_x_var,nonan_y_var,
+                          x_error=nonan_x_var_errs,y_error=nonan_y_var_errs,
                           title="Error bar plot",
                           x_label=x_var_name,y_label=y_var_name,
-                          x_min=np.nanmin(x_var),x_max=np.nanmax(x_var),
-                          y_min=np.nanmin(y_var),y_max=np.nanmax(y_var))
+                          x_min=np.nanmin(nonan_x_var),x_max=np.nanmax(nonan_x_var),
+                          y_min=np.nanmin(nonan_y_var),y_max=np.nanmax(nonan_y_var))
                 elif type_of_comparison == "4":
                     #WYIBF analysis
                     pass
