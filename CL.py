@@ -6,6 +6,7 @@ from CL_oversampler import *
 import os
 from datetime import datetime as dt
 import copy
+import pickle
 
 #"shorthand" variables
 yesno = [["Y","Yes"],["N","No"]] 
@@ -73,7 +74,7 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 
 if initial_choice == "1":
     print "Loading default options"       
-    current_pickle =   '/home/users/lsurl/CL/pickles/2014-11-B'
+    current_pickle =   '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/pp/april2014'
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     
     #ida is the main data holder for all individual data
@@ -115,6 +116,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["C","Generate new dataset from filtered data and pacific corrections"],
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
+            ["O","Create binned from individual"],
             ["B","Bin additional datasets"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
@@ -130,10 +132,16 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         (changed,current_pickle) = change_pickle(current_pickle)
         if changed:
             #reloading is time-consuming so only do if change made
-            ida_p = load_new_pickles_da(current_pickle,"_2.p")
+            try:
+                ida_p = load_new_pickles_da(current_pickle,"_2.p")
+            except IOError:
+                ida_p = load_new_pickles_da(current_pickle,".p")
             ida = ida_p #ida_p is kept static while ida gets modified.
-            bda_p = load_new_pickles_da(current_pickle,"_binned.p")
-            bda = bda_p #bda_p is kept static while bda gets modified
+            try:
+                bda_p = load_new_pickles_da(current_pickle,"_binned.p")
+                bda = bda_p #bda_p is kept static while bda gets modified
+            except IOError:
+                print "No binned data detected. This can be created in this utility"
         
     elif top_level_menu_choice == "E": #change emissions
         (changed,current_geosfolder) = change_emfiles(current_geosfolder)
@@ -197,6 +205,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 bda = da_select_by_shape(geo_selection,bda)                   
 
             #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+    
+    elif top_level_menu_choice == "O": #create binned data 
+        bda = create_binned_set(ida,map_box,xdim,ydim)
     
     elif top_level_menu_choice == "C": #load and correct a new filtered dataset (lcnfd)
         lcnfd_menu_choice = "" 

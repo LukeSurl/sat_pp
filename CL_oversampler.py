@@ -126,7 +126,7 @@ def oversample(ida):
         
         #reduce ida to just the variable we want
         
-        reduced_ida = ind_all(ida.lat,ida.lon,ida.time)
+        reduced_ida = d_all(ida.lat,ida.lon,time=ida.time)
         reduced_ida.data[os_key] = ida.data[os_key]
                 
         ida = copy.deepcopy(reduced_ida)

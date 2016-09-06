@@ -3,7 +3,7 @@
 
 from datetime import datetime as dt
 from datetime import timedelta as td
-import pickle
+
 from matplotlib.patches import Polygon
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as colorbar
@@ -22,6 +22,8 @@ import sys
 from bpch import bpch
 from dateutil.relativedelta import relativedelta
 import copy
+import pickle
+import cPickle
 
 def lat_str(y):
     """Returns string for latitude"""
@@ -185,8 +187,17 @@ class d_all:
             self.time= [self.time[i] for i in all_indexes if filter_list[i]]
         
         #data sets
-        for key in self.data:            
+        for key in self.data:    
             self.data[key].val = [self.data[key].val[i] for i in all_indexes if filter_list[i]]
+            
+    def add_data(self,new_data):
+        #adds a new d object, or multiple d objects
+        if type(new_data) == list:
+            for this_new_data in new_data:
+                self.data[this_new_data.name] = this_new_data
+        else:
+            #if it's just one
+            self.data[new_data.name] = new_data       
 
     def make_menu(self,num_only=False):
         """Create menu options of all the datasets in data"""
@@ -710,7 +721,7 @@ def load_new_pickles_NDVI(current_pickle,verbose=True):
 def load_new_pickles_da(current_pickle,suffix):    
     #Individual observations
     print("Loading pickled individual observations")
-    da = pickle.load( open(current_pickle + suffix,"rb") )
+    da = cPickle.load( open(current_pickle + suffix,"rb") )
     print("Loaded the following datasets")
     for text in da.list_all_datasets():
         print text
@@ -758,10 +769,12 @@ def stripallnans(*a):
 
 
 def draw_screen_poly( rec_lats, rec_lons, m, c, color_index ):
+    rainbow = plt.get_cmap('rainbow')
     x, y = m( rec_lons, rec_lats )
     xy = zip(x,y)
     this_col=color_index(c,clip=True)
-    poly = Polygon( xy, facecolor=[min(1.,0.+this_col*2),1.-2*abs(0.5-this_col),min(1.,2.-this_col*2)], edgecolor='none', alpha=1.0 )
+    #poly = Polygon( xy, facecolor=[min(1.,0.+this_col*2),1.-2*abs(0.5-this_col),min(1.,2.-this_col*2)], edgecolor='none', alpha=1.0 )
+    poly = Polygon( xy, facecolor=rainbow(this_col), edgecolor='none', alpha=1.0 )
     plt.gca().add_patch(poly)
     
 def prepare_map(map_box,boundary=0.1):
@@ -787,8 +800,8 @@ def prepare_map(map_box,boundary=0.1):
     #Draw lines
     m.drawcoastlines()
     m.drawcountries(linewidth=0.25)
-    m.drawparallels(np.arange(-90.,90.,gl_spacing))
-    m.drawmeridians(np.arange(-180.,181.,gl_spacing)) 
+    m.drawparallels(np.arange(-90.,90.,gl_spacing),labels=[True,False,False,False])
+    m.drawmeridians(np.arange(-180.,181.,gl_spacing),labels=[False,False,False,True]) 
     return m
     
 def free_colorbar(vmin,vmax,label="no label selected",coltype="bwr"):
@@ -1219,6 +1232,13 @@ def region_matcher(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
     else:
         return(country_out)
 
+def add_slash(string):
+    """Adds a trailing / character if string does not currently end with one"""
+    if string.endswith("/"):
+        return(string)
+    else:
+        return(string+"/")
+
 def save_pickle(da,save_path=None,prefix=None,suffix="_x.p"):
     """A routine to save a data_all object"""
     
@@ -1241,7 +1261,7 @@ def save_pickle(da,save_path=None,prefix=None,suffix="_x.p"):
     
     save_location = save_path+pickle_name
     
-    pickle.dump(da,open(save_location,"wb"))
+    cPickle.dump(da,open(save_location,"wb"))
     print "Pickle saved to %s" %save_location                 
     
 def select_a_var(var_names,vartuple,purpose="",numbers_only=True):
