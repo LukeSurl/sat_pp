@@ -113,10 +113,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["1","Use binned data"],
             ["2","Use individual observations data"],
             ["G","Geographically select data to use"],
-            ["C","Generate new dataset from filtered data and pacific corrections"],
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
-            ["O","Create binned from individual"],
+            ["O","Create binned from individual data"],
+            ["C","Assign country/state to data"],            
             ["B","Bin additional datasets"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
@@ -206,125 +206,44 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
 
             #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
     
-    elif top_level_menu_choice == "O": #create binned data 
+    elif top_level_menu_choice == "O": #create binned data
+        "Binning data to %fx%f grid cells" %(ydim,xdim)   
         bda = create_binned_set(ida,map_box,xdim,ydim)
     
-    elif top_level_menu_choice == "C": #load and correct a new filtered dataset (lcnfd)
-        lcnfd_menu_choice = "" 
-        while lcnfd_menu_choice != "Z": 
+    elif top_level_menu_choice == "C": #Assign country/state to newly-loaded pickles
+                
+        #Country and state matching
+        print "Matching countries and states"
+        print "Countries and state assignments will be loaded from %s" %country_statefile
+        print "Press enter to use this file or enter new location"
+        new_option = raw_input("-->")
+        if new_option != "":
+            country_statefile == new_option
+        del new_option
+        print "Reading %s" %country_statefile
+        (csv_lat,csv_lon,csv_country,csv_state) = \
+            load_regiondata(country_statefile,states=True)
+        print "Assigning country+state to indiv. data points"
+        (country,state) =\
+            region_matcher(csv_lat,csv_lon,csv_country,csv_state,
+                           ida.lat,ida.lon)
+                           
+        #add these to ida properly
+        ida.data['country'] = d(country,'country','Country observation falls within')
+        del country
+        ida.data['state'  ] = d(state  ,'state'  ,'State observation falls within')
+        del state
         
-            lcnfd_menu_title = "CURRENT SETTINGS:\n" \
-                    "Loading filtered data from: %s\n" \
-                    "Loading pacific correction from: %s\n" \
-                    "Pacific correction type: %s\n" \
-                    "Date range for data (set wide to get all data):\n"\
-                    "Begin: %s\n"\
-                    "End: %s"\
-                    %(filtered_folder,corrections_folder,corr_type,
-                    str(filtered_startdate),str(filtered_enddate))
-            lcnfd_menu_text = [
-                    ["1","Change filtered data folder"],
-                    ["2","Change pacific correction folder"],
-                    ["3","Change pacific correction type"],
-                    ["4","Change dates"],
-                    ["5","Load using these settings"]
-                ]
-            lcnfd_menu_choice = basic_menu(lcnfd_menu_title,
-                                          lcnfd_menu_text)
-            
-            if lcnfd_menu_choice == "1": #change filtered data folder
-                filtered_folder = \
-                    change_var(filtered_folder,"Filtered data folder")
-            elif lcnfd_menu_choice == "2": #change pacific corrections folder
-                corrections_folder = \
-                    change_var(corrections_folder,"Pacific corrections folder")
-            elif lcnfd_menu_choice == "3": #switch correction type
-                if corr_type == "basic":
-                    corr_type = "advanced"
-                elif corr_type == "advanced":
-                    corr_type = "basic"
+        if 'bda' in locals():                   
+            print "Assigning country+state to binned data points"
+            (country_binned,state_binned) =\
+                region_matcher(csv_lat,csv_lon,csv_country,csv_state,
+                               bda.lat,bda.lon)
+            bda.data["country"] = d(country_binned,"country","Country")
+            del country_binned
+            bda.data["state"  ] = d(state_binned  ,"state"  ,"State"  )
+            del state_binned
 
-            elif lcnfd_menu_choice == "4": #change dates
-                new_s_year = change_var(filtered_startdate.year,"Start time year")
-                new_s_month= change_var(filtered_startdate.month,"Start time month")
-                new_s_day  = change_var(filtered_startdate.day,"Start time day")
-                filtered_startdate  = dt(new_s_year,new_s_month,new_s_day,0,0,0)
-                new_e_year = change_var(  filtered_enddate.year,"End time year")
-                new_e_month= change_var(  filtered_enddate.month,"End time month")
-                new_e_day  = change_var(  filtered_enddate.day,"End time day")
-                filtered_enddate    = dt(new_e_year,new_e_month,new_e_day,0,0,0)
-                del new_s_year,new_s_month,new_s_day
-                del new_e_year,new_e_month,new_e_day
-            elif lcnfd_menu_choice == "5": #execute
-                
-                #load+correct individual data
-                ida = \
-                    load_and_correct(filtered_startdate,filtered_enddate,
-                        filtered_folder=filtered_folder,
-                        corrections_folder=corrections_folder,
-                        corr_type=corr_type)
-                print "New individual data has been loaded"
-                
-                #bin data
-                print "Now binning this data"
-                bda = create_binned_set(ida,map_box,xdim,ydim)
-                #dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
-                #NDVI should be coded in at this point
-                
-                #Country and state matching
-                print "Matching countries and states"
-                print "Countries and state assignments will be loaded from %s" %country_statefile
-                print "Press enter to use this file or enter new location"
-                new_option = raw_input("-->")
-                if new_option != "":
-                    country_statefile == new_option
-                del new_option
-                print "Reading %s" %country_statefile
-                (csv_lat,csv_lon,csv_country,csv_state) = \
-                    load_regiondata(country_statefile,states=True)
-                print "Assigning country+state to indiv. data points"
-                (country,state) =\
-                    region_matcher(csv_lat,csv_lon,csv_country,csv_state,
-                                   ida.lat,ida.lon)
-                                   
-                #add these to ida properly
-                ida.data['country'] = d(country,'country','Country observation falls within')
-                del country
-                ida.data['state'  ] = d(state  ,'state'  ,'State observation falls within')
-                del state
-                                   
-                print "Assigning country+state to binned data points"
-                (country_binned,state_binned) =\
-                    region_matcher(csv_lat,csv_lon,csv_country,csv_state,
-                                   bda.lat,bda.lon)
-                bda.data["country"] = d(country_binned,"country","Country")
-                del country_binned
-                bda.data["state"  ] = d(state_binned  ,"state"  ,"State"  )
-                del state_binned
-                print "Done. Do you wish to save these data as new pickles? Y/N"
-                option = basic_menu("Done. Do you wish to save"
-                                    " these data as new pickles [recommended]?",
-                                    [["Y","yes"],["N","no"]],quit_option=False)
-                if option == "Y":
-                    print "Enter path for pickles to saved to (blank entry for script folder):"
-                    save_path = raw_input("-->")
-
-                    #add in a final slash if the user has missed it
-                    #if it's blank it defaults to the script directory
-                    if save_path != "": 
-                        if not save_path.endswith("/"):
-                            save_path =save_path + "/"
-                    
-                    print "Enter name for pickle file. Suffixes will be appended automatically:"
-                    prefix = raw_input("-->")
-                                                       
-                    save_pickle(ida,save_path=save_path,prefix=prefix,suffix="_2.p")
-                    ida_p = copy.deepcopy(ida) #update the static store
-                    save_pickle(bda,save_path=save_path,prefix=prefix,suffix="_binned.p")
-                    bda_p = copy.deepcopy(bda)
-                    current_pickle = save_path+prefix
-                
-                del option
                   
     elif top_level_menu_choice == "S":
         print "Enter path for pickles to saved to (blank entry for script folder):"
