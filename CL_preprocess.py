@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""CL_AMFs.py -- Python scripts assisting AMF calculation"""
+"""CL_preprocess.py -- Python utility for pre-processing"""
 
 from datetime import datetime as dt
 from datetime import timedelta as td
@@ -14,6 +14,7 @@ import copy
 
 from CL_satpp import box,d,d_all,add_slash,clearscreen,basic_menu,geo_select_rectangle_i
 from CL_run_management import run_select,new_run
+#from CL_omi_matchup import match_BRUG
 
 #Tools to filter satellite observational data.
 
@@ -32,7 +33,7 @@ def preprocessing(base_dir=None,run_name=None):
         print "Pre-processing"
         print "Current top-level directory: %s" %base_dir
         print "Currently selected run     : %s" %run_name
-        print "[D] Change top-level directory"
+        print "[D] Change top-level directory"       
         if run_name == None:
             print "[R] Select a run in this directory"
         else:
@@ -46,7 +47,9 @@ def preprocessing(base_dir=None,run_name=None):
             print "[5] Apply pacific correction to slant columns"
             print "[6] Read AMF output and calculate VCs"
             print "[7] Filter for various critera"
+            print "[8] Get equivalent BRUG data"
             print "[A] Do steps 3-7"
+        print "[M] Merge some pickles"
         print "[Z] Go to previous menu"
         option = raw_input("-->").upper()
         
@@ -144,6 +147,16 @@ def preprocessing(base_dir=None,run_name=None):
             
         if option == "7":
             filtering(p3,p4)
+        
+        if option == "8":
+            this_box = box(40.,0.,105.,60.)
+            if not(this_box.valid):
+                raise IOError("Not a valid box!")
+            BRUG = get_BRUG(date_list,this_box)
+            cPickle.dump(BRUG,open(join(p4,"BRUG.p"),"wb"))
+        
+        if option == "M":
+            merge_pickles()
 
 def download_sat(base_dir,run_name,main_pacific):
     clearscreen()
@@ -277,23 +290,52 @@ def OMI_from_HDF(HDF_file):
                     cloud_fraction,cloud_pressure,
                     main_data_quality_flag,Xtrack_flag])    
     return(OMI_all)
+
+def merge_pickles():
+    i = 0
+    pickle_in_l=[]
+    while True:
+        i+=1
+        pickle_in = raw_input("Full path to pickle number %i. Blank entry will finalise list.-->"%i)
+        if pickle_in == "":
+            break
+        pickle_in_l.append(pickle_in)
+    
+    to_merge = []    
+    for i in range(0,len(pickle_in_l)):
+        to_merge.append(cPickle.load(open(pickle_in_l[i],"rb")))
+           
+    merged =merge_OMI(to_merge,do_daylist=False)
+    pickle_out = raw_input("Enter full path to save merged pickle to-->")
+    cPickle.dump(merged,open(pickle_out,"wb"))
         
-def merge_OMI(all_OMIs):
+        
+def merge_OMI(all_OMIs,do_daylist=True):
     """Merges multiple OMI_all files together"""
-    daylist = []
+    if do_daylist:
+        daylist = []
     for OMI in all_OMIs:
-        daylist.append(OMI.meta["day"])
+        if do_daylist:
+            daylist.append(OMI.meta["day"])
         if OMI == all_OMIs[0]:
             #if first set
             merged = OMI
         else:
             merged.lat.extend(OMI.lat)
             merged.lon.extend(OMI.lon)
-            merged.time.extend(OMI.time)
+            try:
+                merged.time.extend(OMI.time)
+            except AttributeError:
+                #OMI does not have to have a time field
+                pass
+                
             for dataset in merged.data:
                 merged.data[dataset].val.extend(OMI.data[dataset].val)
-    del merged.meta["day"]
-    merged.meta["days"] = daylist
+    if do_daylist:
+        del merged.meta["day"]
+        all_days = list(set(daylist))
+        all_days.sort()
+        merged.meta["days"] = all_days
     return(merged)
     
 def write_for_AMF(OMI_all,write_directory,write_name):
@@ -319,7 +361,7 @@ def write_for_AMF(OMI_all,write_directory,write_name):
                      )
     outfile.close()
 
-def check_HDFs_in_directory(directory):
+def check_HDFs_in_directory(directory,HDF_type="OMHCHO"):
     """For a given directory, returns list of good HDF files and their dates"""
     
     directory = add_slash(directory)
@@ -342,8 +384,14 @@ def check_HDFs_in_directory(directory):
             print "%s cannot be read" %f
             files.remove(f)
             continue
-        granule_date = f_HDF['HDFEOS']['SWATHS']['OMI Total Column Amount HCHO']['Geolocation Fields']['TimeUTC'][0]
-        this_date = dt(granule_date[0],granule_date[1],granule_date[2],0,0,0)
+        if HDF_type=="OMHCHO":
+            granule_date = f_HDF['HDFEOS']['SWATHS']['OMI Total Column Amount HCHO']['Geolocation Fields']['TimeUTC'][0]
+            this_date = dt(granule_date[0],granule_date[1],granule_date[2],0,0,0)
+        elif HDF_type=="BRUG":
+            gf = f_HDF['HDFEOS']['SWATHS']['Geolocation Fields']
+            this_date = dt(int(gf['Year'][0]),int(gf['Month'][0]),int(gf['Day'][0]),0,0,0)
+            del gf
+        
         dates_of_files.append(this_date)
         
     return(files,dates_of_files)
@@ -803,14 +851,162 @@ def filtering(p3_dir,p4_dir):
         
         print ida.meta["Filtering stats"]     
         
-        save_path = join(p4_dir,f)
+        save_path = join(p4_dir,"vertical_corrected_filtered.p")
         print "Saving as %s" %save_path
-        cPickle.dump(ida,open(join(p4_dir,"vertical_corrected_filtered.p"),"wb"))
+        cPickle.dump(ida,open(join(save_path),"wb"))
         _ = raw_input("Press enter to continue")
         return
     elif filter_option == "2":
         print "I haven't programmed this yet"
         return   
-                
+
+def get_BRUG(date_list,this_box):
+    """For a particular pickle, brings in other OMI data from a particular directory"""
+    
+    #match_dir = raw_input("In which directory can BRUG data be found?-->")
+    match_dir = '/group_workspaces/cems2/nceo_generic/nceo_ed/BE_H2CO/OMI/YYYY/MM/DD/'
+    #ida is a d_all object containing all the HCHO data. No data has been removed for filtering.
+    
+    #get list of days covered by ida
+    
+    
+    #find all the HDF files
+    HDF_files = []
+    dates_of_files = []
+    for today in date_list:
+        today_match_dir = YYYYMMDD_sub(today,match_dir)
+        print "Checking for HDF files in %s" %today_match_dir
+        try:
+            (today_HDF_files,today_dates_of_files) = check_HDFs_in_directory(today_match_dir,HDF_type="BRUG")
+            HDF_files.extend(today_HDF_files)
+            dates_of_files.extend(today_dates_of_files)
+        except OSError:
+            print "%s cannot be accessed (may not exist)"%today_match_dir
+            pass
+    
+    start_date = min(date_list)
+    end_date = max(date_list)
+    
+    i_to_keep = [i for i in range(0,len(dates_of_files)) 
+                 if dates_of_files[i] in date_list ]
+
+    HDF_files = [HDF_files[i] for i in i_to_keep]
+    dates_of_files = [dates_of_files[i] for i in i_to_keep]
+    
+    #extract information from BRUG
+    print "extracting information from BRUG"
+    BRUG_collection = []
+    for H in HDF_files:
+        print "Extracting from %s" %H
+        this_BRUG = OMI_BRUG_from_HDF(h5py.File(H))
+        #print (this_BRUG.lat)
+        this_BRUG_nest = geo_select_rectangle_i(this_box,this_BRUG)
+        BRUG_collection.append(copy.deepcopy(this_BRUG_nest))
+        del this_BRUG, this_BRUG_nest
+    print "Merging..."
+    BRUG = merge_OMI(BRUG_collection)
+    
+    #Directly associating this data seems like a bust.
+    #Let's just return it and see if we can play with the data somehow.
+    
+    return(BRUG)
+            
+def TAI93_to_UTC(TAI93):
+    """converts a TAI93 timestamp to a datetime object"""
+    #Doesn't account for leap seconds stuff, so +/- a few seconds may be necessary
+    tai_epoch = dt(1993,1,1,0,0,0)
+    return(tai_epoch+td(seconds=TAI93))
+
+
+def OMI_BRUG_from_HDF(HDF_file):
+    """Returns various sets of data from an OMI BRUG file as lists"""
+     
+    #shorthands
+    df = HDF_file['HDFEOS']['SWATHS']['Data Fields']
+    gf = HDF_file['HDFEOS']['SWATHS']['Geolocation Fields']
+    
+    (n_scans,n_tracks) = df['H2CO Columns']["VCD"].shape #shape of the data
+    
+    #get simple location data 
+    #there are 5 lats for each data point in this file, just get the last one for centre
+    lat_5 = list(np.array(gf['Latitudes']).flatten())
+    lat=lat_5[4::5]
+
+    lon_5 = list(np.array(gf['Longitudes']).flatten())
+    lon=lon_5[4::5]
+
+    #Now get the corners:
+    lat_corners = []
+    lon_corners = []
+    for i in range(0,len(lat)):
+        lat_corners.append([lat_5[i*5+0],lat_5[i*5+1],lat_5[i*5+2],lat_5[i*5+3]])
+        lon_corners.append([lon_5[i*5+0],lon_5[i*5+1],lon_5[i*5+2],lon_5[i*5+3]])
+    
+    
+    LAT_cor = d(lat_corners,"lat_corners",description="Pixel corner latitudes")
+    LAT_cor.unit = u"\u00b0" #degree sign
+    LON_cor = d(lon_corners,"lon_corners",description="Pixel corner longitudes")
+    LON_cor.unit = u"\u00b0" #degree sign
+    
+    #scan and row/track identifiers
+    scan_n_list = []
+    track_n_list = []
+
+    for scan in range(0,n_scans):
+        for track in range(0,n_tracks):
+            scan_n_list.append(scan)
+            track_n_list.append(track)
+    
+    scan_n  = d(scan_n_list,"scan",description="Scan number")
+    track_n = d(track_n_list,"row",description="Row number")
+    
+    #print "time bit start..."
+    time_1 = list(np.array(gf['Time']).flatten())
+    time = []
+    for t in range(0,len(time_1)):
+        time.append(TAI93_to_UTC(int(time_1[t])))
+    
+    #print "time bit end..."  
+             
+    #AMF    
+    AMF = d(
+            list(np.array(df['H2CO AMF']['AMF']).flatten()),
+            "BRUG_AMF",description="AMF (BRUG)")
+    
+    #VC    
+    VC = d(
+            list(np.array(df['H2CO Columns']['VCD']).flatten()),
+            "BRUG_VC",description="Vertical column amount (BRUG)")
+    VC.unit = "molec/cm2"
+    
+    #DVC
+    DVC = d(
+            list(np.array(df['H2CO Errors']['VCD0E_S']).flatten()),
+            "BRUG_DVC",description="Vertical column uncertainty (BRUG)")
+    DVC.unit = "molec/cm2"
+    
+    #Normalised Slant
+    
+    NSC = d(
+            list(np.array(df['H2CO Columns']['SCD3']).flatten()),
+            "BRUG_DVC",description="Normalised sland column (BRUG)")
+    NSC.unit = "molec/cm2"
+    
+    #QF
+    QF = d(
+            list(np.array(df['H2CO Errors']['QF']).flatten()),
+            "BRUG_QF",description="Quality Flag (BRUG)")
+    QF.unit = "molec/cm2"
+    
+    #day of file
+    file_date = dt(int(gf['Year'][0]),int(gf['Month'][0]),int(gf['Day'][0]),0,0,0)
+    
+      
+    OMI_BRUG_all = d_all(lat,lon,time=time)
+    OMI_BRUG_all.add_data([scan_n,track_n,AMF,VC,DVC,QF])
+    OMI_BRUG_all.add_data([LAT_cor,LON_cor])
+    OMI_BRUG_all.meta['day']=file_date
+    
+    return(OMI_BRUG_all)                        
       
 preprocessing(base_dir="/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP")         

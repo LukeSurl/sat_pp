@@ -24,6 +24,7 @@ from dateutil.relativedelta import relativedelta
 import copy
 import pickle
 import cPickle
+from WYIBF import *
 
 def lat_str(y):
     """Returns string for latitude"""
@@ -470,6 +471,12 @@ def timeseries_statistics_menu(quickinput=["0","0"]):
                 timestep = float(raw_input("-->"))
                 return(dataset_choice,stat_choice,timestep)
 
+def frange(x, y, jump=1.0):
+  while x < y:
+    yield x
+    return
+    x += jump
+  
 
 def calc_statistic(dataset,stat_choice):
     if stat_choice == "1": #mean
@@ -478,6 +485,8 @@ def calc_statistic(dataset,stat_choice):
         return np.nanstd(dataset)
     elif stat_choice == "3": #count
         return np.count_nonzero(~np.isnan(dataset))
+    elif stat_choice == "4": #percentiles
+        return np.percentile(dataset,frange(0.,101.))
         
     
 def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2"):
@@ -1382,7 +1391,12 @@ def two_var_comparison(ida):
                           y_min=np.nanmin(nonan_y_var),y_max=np.nanmax(nonan_y_var))
                 elif type_of_comparison == "4":
                     #WYIBF analysis
-                    pass
+                    (m,b,merr,berr,gof) = WYIBF(
+                        nonan_x_var     , nonan_y_var,
+                        nonan_x_var_errs, nonan_y_var_errs,
+                        err_type="stdev",iterate=True)
+                    print "Best-fit line: y = (%+.2g +/- %+.2g)x + (%+.2g +/- %+.2g)" %(m,merr,b,berr)
+                    print "Goodness of fit: %g" %gof 
                     _ = raw_input("Press enter to continue-->")
 
 def get_errors(ida,var_key):
@@ -1400,7 +1414,7 @@ def get_errors(ida,var_key):
     if e_choice == "Z":
         var_errs = "Z"
     elif e_choice == "1":
-        var_errs = None
+        var_errs = list(np.zeros_like(var))
     elif e_choice == "2":                                  
         var_errs = list(np.zeros_like(var))
         fixed_error_value = float(raw_input("Enter fixed error value\n"
@@ -1784,7 +1798,8 @@ def stats_from_da(da):
             s2_menu_title = "Which statistical operator do you want to compute?"
             s2_menu_text=[["1","mean"],
                            ["2","standard deviation"],
-                           ["3","count"]]
+                           ["3","count"],
+                           ["4","percentiles"]]
             s2_menu_choice= basic_menu(s2_menu_title,
                                        s2_menu_text,
                                        quit_option=True)
@@ -1800,7 +1815,11 @@ def stats_from_da(da):
             
             print "Dataset: %s" %da.data[data_key].description
             print "Statistic: %s" %stat_choice_text
-            print "Result: %g" %stat
+            if s2_menu_choice == "4":
+                for i in range(0,101):
+                    print "%i percentile: %f" %(i,stat[i])
+            else:
+                print "Result: %g" %stat
             
             _ = raw_input("Press enter to continue-->")    
     
@@ -1932,5 +1951,75 @@ def bin_extra(ida,bda):
                 bda.data[this_name].unit = ""
             
             return(bda)           
+
+def criteria_filtering(ida):
+    """Filter based on values"""
+    cf1_menu_title = "FILTER:\n"\
+                      "Filter based on which dataset?:"
+    [cf1_menu_text,cf1_answers_dict] = ida.make_menu()
+    cf1_menu_choice = basic_menu(cf1_menu_title,
+                                cf1_menu_text,
+                                quit_option=True)
+    if cf1_menu_choice == "Z":
+        return(ida)
+    cf1_key =     cf1_answers_dict[cf1_menu_choice]    
+    cf_var =      ida.data[cf1_key].val
+    cf_var_name = ida.data[cf1_key].description
+    
+    cf2_menu_choice = basic_menu(
+                      "FILERING SETTING:",
+                      [["1","Keep values of %s which MATCH a specified value"%cf_var_name],
+                       ["2","Keep values of %s which DO NOT MATCH a specified value"%cf_var_name],
+                       ["3","Keep values of %s which are LESS THAN a specified value"%cf_var_name],
+                       ["4","Keep values of %s which are MORE THAN a specified value"%cf_var_name]]
+                       )
+    if cf1_menu_choice == "Z":
+        return(ida)
+    
+    cf3_menu_choice = input("Enter the critical value-->")
+    pre_f_n = len(ida.lat)
+    print "%i values prior to filtering."%pre_f_n
+    
+    filter_TF = []
+    if cf2_menu_choice == "1":     
+        for i in range(0,len(ida.lat)):
+            if ida.data[cf1_key].val[i] == cf3_menu_choice:
+                filter_TF.append(True)
+            else:
+                filter_TF.append(False)
+    elif cf2_menu_choice == "2":     
+        for i in range(0,len(ida.lat)):
+            if ida.data[cf1_key].val[i] != cf3_menu_choice:
+                filter_TF.append(True)
+            else:
+                filter_TF.append(False)
+    elif cf2_menu_choice == "3":     
+        for i in range(0,len(ida.lat)):
+            if ida.data[cf1_key].val[i] < cf3_menu_choice:
+                filter_TF.append(True)
+            else:
+                filter_TF.append(False)
+    elif cf2_menu_choice == "4":     
+        for i in range(0,len(ida.lat)):
+            if ida.data[cf1_key].val[i] > cf3_menu_choice:
+                filter_TF.append(True)
+            else:
+                filter_TF.append(False)
         
+    ida.filter_all(filter_TF)
+    
+    post_f_n = len(ida.lat)
+    print "%i values prior to filtering."%post_f_n
+    _=raw_input("Press enter to continue-->")
+    return(ida)
+
+def betwixt(a,b,s):
+    """Gets the substring between two substrings in s"""    
+    return(s[s.index(a)+len(a):s.index(b)])
+
+def only_months(ida):
+    chosen_month = input("Enter month (as number) to highlight-->")
+    keep = [ida.time[i].month == chosen_month for i in range(0,len(ida.lat)) ]
+    ida.filter_all(keep)
+    return(ida)
             

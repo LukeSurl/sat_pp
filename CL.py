@@ -74,7 +74,8 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 
 if initial_choice == "1":
     print "Loading default options"       
-    current_pickle =   '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/pp/april2014'
+    #current_pickle =   '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/pp/april2014'
+    current_pickle = '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/p4/vertical_corrected_filtered'
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     
     #ida is the main data holder for all individual data
@@ -83,9 +84,13 @@ if initial_choice == "1":
     ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
     
     #bda is the main data holder for all binned data
-    #it is of type bin_data_all and holds bnd type objects    
-    bda_p = load_new_pickles_da(current_pickle,"_binned.p") #bda_p is kept static while bda gets modified.
-    bda = copy.deepcopy(bda_p) 
+    #it is of type bin_data_all and holds bnd type objects 
+    try:   
+        bda_p = load_new_pickles_da(current_pickle,"_binned.p") #bda_p is kept static while bda gets modified.
+        bda = copy.deepcopy(bda_p)
+    except IOError:
+        print "%s_binned.p does not exist. If you want binned data, you'll need to do the binning" %current_pickle
+        _ = raw_input("Press enter to continue")
    
     #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
     #(lat,lon,
@@ -113,6 +118,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["1","Use binned data"],
             ["2","Use individual observations data"],
             ["G","Geographically select data to use"],
+            ["F","Filter indvidual data based on values"],
+            ["M","Filter down to a defined month"],
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
             ["O","Create binned from individual data"],
@@ -186,7 +193,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         #re-unpack data sets to clear any previous geographic selection
         print "Reloading..."
         ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
-        bda = copy.deepcopy(bda_p) #bda_p is kept static while bda gets modified.
+        try:
+            bda = copy.deepcopy(bda_p) #bda_p is kept static while bda gets modified.
+        except NameError: #bda doesn't exist
+            pass
         #dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
         
         
@@ -205,6 +215,12 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 bda = da_select_by_shape(geo_selection,bda)                   
 
             #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+    
+    elif top_level_menu_choice == "F": #values filtering
+        ida = criteria_filtering(ida)
+    
+    elif top_level_menu_choice == "M": #month filtering
+        ida = only_months(ida)
     
     elif top_level_menu_choice == "O": #create binned data
         "Binning data to %fx%f grid cells" %(ydim,xdim)   
@@ -260,8 +276,11 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                            
         save_pickle(ida,save_path=save_path,prefix=prefix,suffix="_2.p")
         ida_p = copy.deepcopy(ida) #update the static store
-        save_pickle(bda,save_path=save_path,prefix=prefix,suffix="_binned.p")
-        bda_p = copy.deepcopy(bda) #update the static store
+        try:
+            save_pickle(bda,save_path=save_path,prefix=prefix,suffix="_binned.p")
+            bda_p = copy.deepcopy(bda) #update the static store
+        except NameError: #bda doesn't exist
+            pass
         current_pickle = save_path+prefix
         
     elif top_level_menu_choice == "1": #Binned data
@@ -332,7 +351,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 ["2","Compute basic statistics"],
                 ["3","Timeseries"],
                 ["4","Compare two datasets"],
-                ["5","Oversample"]
+                ["5","Oversample"],
+                ["6","Overlay"]
                 ]
             uid_menu_choice = basic_menu(uid_menu_title,
                                          uid_menu_text,
@@ -437,15 +457,22 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             elif uid_menu_choice == "4": #compare datasets
                 two_var_comparison(ida)
             
-            #ida-ification done to this point    
             elif uid_menu_choice == "5": #oversampler
                 #print len(ida.lat)
                 #raw_input("halt-->")
-                os_ida = copy.deepcopy(ida)
-                os_data = oversample(os_ida)
+                
+                os_data = oversample(ida)
+                save_location = raw_input("Dump this data as a pickle? Enter full path or press enter to skip this-->")
+                if save_location != "":
+                    cPickle.dump(os_data,open(save_location,"wb"))
                 #print len(ida.lat)
                 #raw_input("halt-->")
-
+           
+            elif uid_menu_choice == "6": #oversampler
+                ov_data = overlay(ida)
+                save_location = raw_input("Dump this data as a pickle? Enter full path or press enter to skip this-->")
+                if save_location != "":
+                    cPickle.dump(ov_data,open(save_location,"wb"))
         
                
         
