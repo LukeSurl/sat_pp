@@ -25,6 +25,7 @@ import copy
 import pickle
 import cPickle
 from WYIBF import *
+from readNDVI import *
 
 def lat_str(y):
     """Returns string for latitude"""
@@ -188,7 +189,8 @@ class d_all:
             self.time= [self.time[i] for i in all_indexes if filter_list[i]]
         
         #data sets
-        for key in self.data:    
+        for key in self.data:
+            print key    
             self.data[key].val = [self.data[key].val[i] for i in all_indexes if filter_list[i]]
             
     def add_data(self,new_data):
@@ -791,7 +793,7 @@ def prepare_map(map_box,boundary=0.1):
     m = Basemap(projection='merc',
             llcrnrlat=map_box.s-boundary,urcrnrlat=map_box.n+boundary,
             llcrnrlon=map_box.w-boundary,urcrnrlon=map_box.e+boundary,
-            lat_ts=(map_box.n+map_box.s)/2.,resolution='i')
+            lat_ts=(map_box.n+map_box.s)/2.,resolution='h')
     
     #get appropriate grid line spacing for this map
     min_dimension = min(map_box.n-map_box.s,map_box.e-map_box.w)
@@ -818,6 +820,11 @@ def free_colorbar(vmin,vmax,label="no label selected",coltype="bwr"):
         cols_for_bar = [[0.,0.,1.],[1.,1.,1.],[1.,0.,0.]]
     elif coltype == "lg-dg":
         cols_for_bar = [[0.,0.2,0.],[0.8,0.2,0.8]]
+    else:
+        rainbow = plt.get_cmap(coltype)
+        cols_for_bar = []
+        for i in range(0,256):
+            cols_for_bar.append(list(rainbow(i)[0:3]))
     #can add in more cols_for_bar options here.
     cm1 = colors.LinearSegmentedColormap.from_list("MyCmapName",cols_for_bar)
     cnorm = colors.Normalize(vmin=vmin,vmax=vmax)
@@ -840,10 +847,10 @@ def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=
             continue #don't plot if there's no data
         draw_screen_poly( [this_s,this_n,this_n,this_s],[this_w,this_w,this_e,this_e], m, this_c, color_index )        
     plt.title(title)
-    free_colorbar(vmin,vmax,label=lab)
+    free_colorbar(vmin,vmax,label=lab,coltype="rainbow")
     fig = plt.gcf()
     if save:    
-        fig.savefig(save_filename)
+        fig.savefig(save_filename, dpi=600)
     plt.show()
 
 def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec/cm2",save=False,save_filename="nofilenamespecified"):
@@ -855,7 +862,7 @@ def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot
     free_colorbar(vmin,vmax,label=lab)
     fig = plt.gcf()
     if save:    
-        fig.savefig(save_filename)
+        fig.savefig(save_filename, dpi=600)
     plt.show()
 
     
@@ -1118,63 +1125,74 @@ def create_binned_set(ida,map_box,xdim,ydim):
     #pull variables out of ida
     lat=ida.lat
     lon=ida.lon
-    sat_VC=ida.data['sat_VC'].val
-    sat_DVC=ida.data['sat_DVC'].val
-    geos_VC=ida.data['geos_VC'].val
-
-    #Mean satellite observation 
-    (lat_binned,lon_binned,sat_VC_mean_binned,xedges,yedges,index_map) = \
-        binner(lat,lon,sat_VC,map_box,stat="mean",xdim=xdim,ydim=ydim,
-               do_extras=True)
-    #Standard deviation in satellite observation
-    sat_VC_stdev_binned = \
-        binner(lat,lon,sat_VC,map_box,stat="stdev",xdim=xdim,ydim=ydim)
-    #Count of number of observations
-    sat_VC_count_binned = \
-        binner(lat,lon,sat_VC,map_box,stat="count",xdim=xdim,ydim=ydim)
-    #Mean error in satellite observation
-    sat_DVC_mean_binned = \
-        binner(lat,lon,sat_DVC,map_box,stat="mean",xdim=xdim,ydim=ydim)    
-    #Mean model observation
-    geos_VC_mean_binned = \
-        binner(lat,lon,geos_VC,map_box,stat="mean",xdim=xdim,ydim=ydim)
-    #Standard deviation in model values
-    geos_VC_stdev_binned = \
-        binner(lat,lon,geos_VC,map_box,stat="stdev",xdim=xdim,ydim=ydim)
-
-    #push these lists into bda
-    vals         = [sat_VC_mean_binned,
-                    sat_VC_stdev_binned,
-                    sat_VC_count_binned,
-                    sat_DVC_mean_binned,
-                    geos_VC_mean_binned,
-                    geos_VC_stdev_binned]
-    names        = ["sat_VC_mean",
-                    "sat_VC_stdev",
-                    "sat_VC_count",
-                    "sat_DVC_mean",
-                    "geos_VC_mean",
-                    "geos_VC_stdev"]
-    descriptions = ["Mean satellite vertical column",
-                    "Standard deviation of satellite vertical column",
-                    "Number of observations in bin",
-                    "Mean error in satellite vertical column",
-                    "Mean modelled vertical column",
-                    "Standard deviation of modelled vertical column"]
-    units        = ["molec/cm2",
-                    "molec/cm2",
-                    ""          ,
-                    "molec/cm2",
-                    "molec/cm2",
-                    "molec/cm2"]
-    bda = d_all(lat_binned,lon_binned)
-    for i in range(0,len(names)):
-        bda.data[names[i]] = d(vals[i],names[i],description=descriptions[i])
-        bda.data[names[i]].unit = units[i]
     
+    #get lat_ & lon_ binned
+    (lat_binned,lon_binned,null_1,xedges,yedges,index_map) = \
+        binner(lat,lon,lat,map_box,stat="mean",xdim=xdim,ydim=ydim,
+               do_extras=True)   
+    
+    bda = d_all(lat_binned,lon_binned)            
     bda.meta["Data type"] = "Binned data"
     bda.meta["Area"] = map_box
     bda.meta["Binning dimensions"] = [xdim,ydim]
+         
+    try:
+        sat_VC=ida.data['sat_VC'].val
+        sat_DVC=ida.data['sat_DVC'].val
+        geos_VC=ida.data['geos_VC'].val
+
+        #Mean satellite observation 
+        sat_VC_mean_binned = \
+            binner(lat,lon,sat_VC,map_box,stat="mean",xdim=xdim,ydim=ydim)
+        #Standard deviation in satellite observation
+        sat_VC_stdev_binned = \
+            binner(lat,lon,sat_VC,map_box,stat="stdev",xdim=xdim,ydim=ydim)
+        #Count of number of observations
+        sat_VC_count_binned = \
+            binner(lat,lon,sat_VC,map_box,stat="count",xdim=xdim,ydim=ydim)
+        #Mean error in satellite observation
+        sat_DVC_mean_binned = \
+            binner(lat,lon,sat_DVC,map_box,stat="mean",xdim=xdim,ydim=ydim)    
+        #Mean model observation
+        geos_VC_mean_binned = \
+            binner(lat,lon,geos_VC,map_box,stat="mean",xdim=xdim,ydim=ydim)
+        #Standard deviation in model values
+        geos_VC_stdev_binned = \
+            binner(lat,lon,geos_VC,map_box,stat="stdev",xdim=xdim,ydim=ydim)
+
+        #push these lists into bda
+        vals         = [sat_VC_mean_binned,
+                        sat_VC_stdev_binned,
+                        sat_VC_count_binned,
+                        sat_DVC_mean_binned,
+                        geos_VC_mean_binned,
+                        geos_VC_stdev_binned]
+        names        = ["sat_VC_mean",
+                        "sat_VC_stdev",
+                        "sat_VC_count",
+                        "sat_DVC_mean",
+                        "geos_VC_mean",
+                        "geos_VC_stdev"]
+        descriptions = ["Mean satellite vertical column",
+                        "Standard deviation of satellite vertical column",
+                        "Number of observations in bin",
+                        "Mean error in satellite vertical column",
+                        "Mean modelled vertical column",
+                        "Standard deviation of modelled vertical column"]
+        units        = ["molec/cm2",
+                        "molec/cm2",
+                        ""          ,
+                        "molec/cm2",
+                        "molec/cm2",
+                        "molec/cm2"]
+        
+        for i in range(0,len(names)):
+            bda.data[names[i]] = d(vals[i],names[i],description=descriptions[i])
+            bda.data[names[i]].unit = units[i]
+    
+    except: #error means that sat_VC doesn't exist, will happen for BRUG datasets.
+        print "Not standard form data, use 'bin additional datasets' option"
+        _ = raw_input("Press enter to continue-->")
     
     return(bda)
 
@@ -1364,12 +1382,33 @@ def two_var_comparison(ida):
                             stripallnans(x_var,y_var)                                                    
                                                                 
                 if type_of_comparison == "1":
+                    goplot = False
+                    axes_lims = [np.nanmin(nonan_x_var),np.nanmax(nonan_x_var),
+                                 np.nanmin(nonan_y_var),np.nanmax(nonan_y_var)]
+                    alpha = "auto" 
+                    while goplot == False:
+                        print "x-axis min: %g \nx-axis min: %g\ny-axis min: %g \ny-axis min: %g\nalpha: %s"\
+                              %(axes_lims[0],axes_lims[1],axes_lims[2],axes_lims[3],str(alpha))
+                        print "Type C to change, or press ENTER to plot"
+                        opt = raw_input("-->").upper()
+                        if opt == "C":
+                           axes_lims[0] = input("New value for x axis minimum-->")
+                           axes_lims[1] = input("New value for x axis maximum-->")
+                           axes_lims[2] = input("New value for y axis minimum-->")
+                           axes_lims[3] = input("New value for y axis maximum-->")
+                           alpha = input("Alpha value ('auto' for automatic) -->")
+                        elif opt == "":
+                            goplot = True
+                        
+                    if type(alpha) == str:
+                        alpha = None    
                     error_bar_scatter(nonan_x_var,nonan_y_var,
                                       x_error=None,y_error=None,
                                       title="Scatter plot",
                                       x_label=x_var_name,y_label=y_var_name,
-                                      x_min=np.nanmin(nonan_x_var),x_max=np.nanmax(nonan_x_var),
-                                      y_min=np.nanmin(nonan_y_var),y_max=np.nanmax(nonan_y_var))
+                                      alpha=alpha,
+                                      x_min=axes_lims[0],x_max=axes_lims[1],
+                                      y_min=axes_lims[2],y_max=axes_lims[3])
                 elif type_of_comparison == "2":
                     print "Linear regression:"
                     slope, intercept, r_value, p_value, std_err = scistats.linregress(nonan_x_var,nonan_y_var)
@@ -1383,12 +1422,27 @@ def two_var_comparison(ida):
                     polyfit = np.polyfit(nonan_x_var, nonan_y_var, 1)
                     _ = raw_input("Press enter to continue-->")
                 elif type_of_comparison == "3":
+                    goplot = False
+                    axes_lims = [np.nanmin(nonan_x_var),np.nanmax(nonan_x_var),
+                                 np.nanmin(nonan_y_var),np.nanmax(nonan_y_var)]
+                    while goplot == False:
+                        print "x-axis min: %g \nx-axis min: %g\ny-axis min: %g \ny-axis min: %g"\
+                              %(axes_lims[0],axes_lims[1],axes_lims[2],axes_lims[3])
+                        print "Type C to change, or press ENTER to plot"
+                        opt = raw_input("-->").upper()
+                        if opt == "C":
+                           axes_lims[0] = input("New value for x axis minimum-->")
+                           axes_lims[1] = input("New value for x axis maximum-->")
+                           axes_lims[2] = input("New value for y axis minimum-->")
+                           axes_lims[3] = input("New value for y axis maximum-->")
+                        elif opt == "":
+                            goplot = True
                     error_bar_scatter(nonan_x_var,nonan_y_var,
                           x_error=nonan_x_var_errs,y_error=nonan_y_var_errs,
                           title="Error bar plot",
                           x_label=x_var_name,y_label=y_var_name,
-                          x_min=np.nanmin(nonan_x_var),x_max=np.nanmax(nonan_x_var),
-                          y_min=np.nanmin(nonan_y_var),y_max=np.nanmax(nonan_y_var))
+                          x_min=axes_lims[0],x_max=axes_lims[1],
+                          y_min=axes_lims[2],y_max=axes_lims[3])
                 elif type_of_comparison == "4":
                     #WYIBF analysis
                     (m,b,merr,berr,gof) = WYIBF(
@@ -2022,4 +2076,36 @@ def only_months(ida):
     keep = [ida.time[i].month == chosen_month for i in range(0,len(ida.lat)) ]
     ida.filter_all(keep)
     return(ida)
-            
+
+def assoicate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
+    
+    #check time bounds
+    #earliest = min(ida.time)
+    #latest   = max(ida.time)
+    
+    
+    #read NDVI data
+    (lat_NDVI,lon_NDVI,NDVI,year_NDVI,month_NDVI) = NDVI_months(earliest,latest,NDVI_dir,0.1,0.1,map_box)
+    
+    NDVI_dt = []
+    for i in range(0,len(NDVI)):
+        NDVI_dt.append(dt(year_NDVI[i],month_NDVI[i],1,0,0,0))
+    
+    NDVI_da = d_all(lat_NDVI,lon_NDVI,time=NDVI_dt)
+    NDVI_da.add_data(d(NDVI,"NDVI",description="Normalised Diffusive Vegitation Index (NDVI)")) 
+    
+    this_binned = \
+       binner(NDVI_da.lat,NDVI_da.lon,
+              NDVI_da.data["NDVI"].val,
+              bda.meta["Area"],
+              stat="mean",
+              xdim=bda.meta["Binning dimensions"][0],
+              ydim=bda.meta["Binning dimensions"][1])
+       
+    this_name = NDVI_da.data["NDVI"].name
+    this_description = NDVI_da.data["NDVI"].description
+    bda.data[this_name] = d(this_binned,this_name,description=this_description+": mean")
+    bda.data[this_name].unit = ""
+               
+    return(bda)
+                

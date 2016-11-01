@@ -75,7 +75,9 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 if initial_choice == "1":
     print "Loading default options"       
     #current_pickle =   '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/pp/april2014'
-    current_pickle = '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/p4/vertical_corrected_filtered'
+    current_pickle = '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014_06/pp/info'
+    startdate = dt(2014,06,01, 0, 0, 0)
+    enddate   = dt(2014,06,30,23,59,59)
     current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
     
     #ida is the main data holder for all individual data
@@ -125,6 +127,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["O","Create binned from individual data"],
             ["C","Assign country/state to data"],            
             ["B","Bin additional datasets"],
+            ["N","Associate NDVI data"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
             ["A","Load GEOS Chem trac_avg data"],
@@ -172,6 +175,11 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             
     elif top_level_menu_choice == "B": #Bin additional datasets
         bda = bin_extra(ida,bda)
+    
+    elif top_level_menu_choice == "N": #associate NDVI
+        #NDVI_dir = raw_input("Enter directory containing NDVI data-->")
+        NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
+        bda = assoicate_NDVI(NDVI_dir,map_box,bda,startdate,enddate)
                 
     elif top_level_menu_choice == "K": #plot geos chem data
         plot_geos_chem(geos_dict)
@@ -206,7 +214,10 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         if before_geo != (type_geo_select,geo_selection): #if geo selection has changed
             print "Updating geographic selection..."
             if type_geo_select in ["country","state"]:
-                ida = da_select_by_match(type_geo_select,geo_selection,ida)
+                try: #will fail if ida doesn't have country/state data
+                    ida = da_select_by_match(type_geo_select,geo_selection,ida)
+                except:
+                    print "Cannot process individual data, country/state not assigned"
                 bda = da_select_by_match(type_geo_select,geo_selection,bda)
             #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
 
@@ -239,17 +250,21 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         print "Reading %s" %country_statefile
         (csv_lat,csv_lon,csv_country,csv_state) = \
             load_regiondata(country_statefile,states=True)
-        print "Assigning country+state to indiv. data points"
-        (country,state) =\
-            region_matcher(csv_lat,csv_lon,csv_country,csv_state,
-                           ida.lat,ida.lon)
-                           
-        #add these to ida properly
-        ida.data['country'] = d(country,'country','Country observation falls within')
-        del country
-        ida.data['state'  ] = d(state  ,'state'  ,'State observation falls within')
-        del state
-        
+        do_ind_countrystate = "x"
+        while do_ind_countrystate not in ["Y","y","N","n"]:
+            do_ind_countrystate = raw_input("Assign to individual data points? Y/N -->").upper()
+        if do_ind_countrystate in ["Y","y"]:
+            print "Assigning country+state to indiv. data points"
+            (country,state) =\
+                region_matcher(csv_lat,csv_lon,csv_country,csv_state,
+                               ida.lat,ida.lon)
+                               
+            #add these to ida properly
+            ida.data['country'] = d(country,'country','Country observation falls within')
+            del country
+            ida.data['state'  ] = d(state  ,'state'  ,'State observation falls within')
+            del state
+            
         if 'bda' in locals():                   
             print "Assigning country+state to binned data points"
             (country_binned,state_binned) =\
@@ -468,9 +483,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 #print len(ida.lat)
                 #raw_input("halt-->")
            
-            elif uid_menu_choice == "6": #oversampler
+            elif uid_menu_choice == "6": #overlayer
                 ov_data = overlay(ida)
-                save_location = raw_input("Dump this data as a pickle? Enter full path or press enter to skip this-->")
+                save_location = "/home/users/lsurl/CL/OL/allindia_2011-2015_DJF_OL.p"
                 if save_location != "":
                     cPickle.dump(ov_data,open(save_location,"wb"))
         

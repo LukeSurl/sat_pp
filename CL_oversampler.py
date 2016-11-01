@@ -290,7 +290,23 @@ def overlay(ida):
                                 ov_menu_text,
                                 quit_option=False)                                                           
     ov_key =      ov_answers_dict[ov_menu_choice]
-    ov_var_name = ida.data[ov_key].description      
+    ov_var_name = ida.data[ov_key].description
+    
+    #See if user wants to weight based on an error dataset (weight inverse to values)
+    use_delta_YN = ""
+    while use_delta_YN not in ["Y","N"]:
+        use_delta_YN = raw_input("Use an error dataset for weighting? Y/N-->").upper()
+        if use_delta_YN == "Y":
+            [ovd_menu_text,ovd_answers_dict] = ida.make_menu()
+            ovd_menu_title = "Select error for weighting. Weighting will be inversely proportional to these values.:"
+            ovd_menu_choice = basic_menu(ovd_menu_title,
+                                        ovd_menu_text,
+                                        quit_option=False)                                                           
+            ovd_key =      ovd_answers_dict[ovd_menu_choice]
+            use_delta=True
+        elif use_delta_YN == "N":
+            use_delta=False
+                      
     #Define the mapping box
     view_box_valid = False
     while view_box_valid == False:                          
@@ -324,7 +340,8 @@ def overlay(ida):
     all_lat_corners = np.array(ida.data["lat_corners"].val)
     all_lon_corners = np.array(ida.data["lon_corners"].val)
     all_var          = np.array(ida.data[ov_key].val)
-    #all_dvar         = np.array(ida.data["sat_DVC"].val)
+    if use_delta:
+        all_dvar = np.array(ida.data[ovd_key].val)
     
     
     #work out which tiles have at least one corner in the main box.  
@@ -344,6 +361,8 @@ def overlay(ida):
     region_lat_corners = all_lat_corners[keep_region]
     region_lon_corners = all_lon_corners[keep_region]
     region_var          = all_var[keep_region]
+    if use_delta:
+        region_dvar          = all_dvar[keep_region]
     #region_dvc         = all_dvc[keep]
     
     num_region=len(region_var)
@@ -353,7 +372,7 @@ def overlay(ida):
     obs_paths = [quad_as_path(region_lat_corners[i],region_lon_corners[i]) for i in range(0,num_region) ]
     #work out the relative weight per fine grid cell (reciprocal of area) of each
     print "Calculating areas..." 
-    weights = np.array([1./area_poly(region_lat_corners[i],region_lon_corners[i]) for i in range(0,num_region) ])
+    area_weights = np.array([1./area_poly(region_lat_corners[i],region_lon_corners[i]) for i in range(0,num_region) ])
     
     #Note: For now, area is computed as if 1 degree lat = 1 degree lon
     
@@ -361,11 +380,16 @@ def overlay(ida):
     cum_wv   = np.zeros_like(np.array(lat_fine))
     cum_w   =  np.zeros_like(np.array(lat_fine))    
     for i in range(0,num_region):
-        print "Obs. %i of %i" %(i+1,num_region)
+        if i%100 == 0:
+            print "Obs. %i of %i" %(i+1,num_region)
         pix_in = 1.* np.array(obs_paths[i].contains_points(fine_grid))
         #print list(pix_in)
-        cum_w += weights[i]*pix_in
-        cum_wv += region_var[i]*weights[i]*pix_in
+        if use_delta:
+            cum_w += (area_weights[i]/region_dvar[i])*pix_in
+            cum_wv += region_var[i]*(area_weights[i]/region_dvar[i])*pix_in
+        else:
+            cum_w += area_weights[i]*pix_in
+            cum_wv += region_var[i]*area_weights[i]*pix_in
         
     
     var_fine = list(np.divide(cum_wv,cum_w))    
@@ -376,6 +400,8 @@ def overlay(ida):
                         title="Overlayed plot",vmin=0.0e16,vmax=2.0e16,
                         lab=ov_var_name,
                         save=True,save_filename="/home/users/lsurl/CL/%fN-%fN--%fE-%fE--overlay.png"%(south_view,north_view,west_view,east_view))
+    
+    cPickle.dump((lon_fine,lat_fine,var_fine),open("OLgrid.p","wb"))
     
     return(lat_fine,lon_fine,var_fine)  
 

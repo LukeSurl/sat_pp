@@ -252,11 +252,11 @@ def OMI_from_HDF(HDF_file):
     #it may also be useful to get the final VC here, even though we'll
     #calculate our own
     
-    #NASA_VC = d(
-    #            list(np.array(df['ReferenceSectorCorrectedVerticalColumn'])),
-    #            "Vertical Column (NASA)",
-    #            description="Vertical Column (as calulated in OMHCHO)")
-    #NASA_VC.unit = "molec/cm2"
+    NASA_VC = d(
+                list(np.array(df['ReferenceSectorCorrectedVerticalColumn']).flatten()),
+                "Vertical Column (NASA)",
+                description="Vertical Column (as calulated in OMHCHO)")
+    NASA_VC.unit = "molec/cm2"
     
     #Cloud info
     #Cloud infomation is taken from OMCLDO2 product
@@ -286,7 +286,7 @@ def OMI_from_HDF(HDF_file):
     OMI_all = d_all(lat,lon,time)
     OMI_all.add_data([scan_n,track_n,
                     SAA,SZA,VAA,VZA,
-                    SC,DSC,#NASA_VC,
+                    SC,DSC,NASA_VC,
                     cloud_fraction,cloud_pressure,
                     main_data_quality_flag,Xtrack_flag])    
     return(OMI_all)
@@ -423,9 +423,11 @@ def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save):
         print "Assembling data for "+ date_clock.strftime("%Y-%m-%d")
         this_day_HDF_files = [HDF_files[i] for i in range(0,len(HDF_files))
                           if dates_of_files[i] == date_clock ]
-        print "Found %i HDF files for this day" %len(HDF_files)
+        print "Found %i HDF files for this day" %len(this_day_HDF_files)
         if this_day_HDF_files == []: #if no data for this day
             have_data.append([date_clock,False])
+            date_clock += td(days=1)
+            continue
         else:
             have_data.append([date_clock, True])
         #print this_day_HDF_files
@@ -433,7 +435,7 @@ def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save):
         for H in this_day_HDF_files:
             these_OMIs.append(OMI_from_HDF(h5py.File(H)))
         #print these_OMIs
-        this_day_OMI = merge_OMI(these_OMIs)
+        this_day_OMI = merge_OMI(these_OMIs,do_daylist=False)
         del these_OMIs
         
         #assign day
@@ -655,6 +657,8 @@ def pacific_correction(in_p1s,base_dir,run_name):
         #strictly restrict to designated area 
         
         print len(pacific_data.lat)
+        
+        #geo_select_rectangle_i(reference_sector_full,pacific_data)
         pacific_data = geo_select_rectangle_i(reference_sector_full,pacific_data)
 
         
@@ -665,6 +669,7 @@ def pacific_correction(in_p1s,base_dir,run_name):
         #make a pacific_data_equatorial object    
         pacific_data_eq = copy.deepcopy(pacific_data)
         pacific_data_eq = geo_select_rectangle_i(reference_sector_eq,pacific_data_eq)
+        geo_select_rectangle_i(reference_sector_eq,pacific_data_eq)
         
         good_i = np.isfinite(pacific_data.data["SC"].val)    
 
@@ -740,7 +745,7 @@ def get_pacific(this_date,sat_pacific_dir):
     for H in this_day_HDF_files:
         these_OMIs.append(OMI_from_HDF(h5py.File(H)))
     
-    this_day_OMI = merge_OMI(these_OMIs)
+    this_day_OMI = merge_OMI(these_OMIs,do_daylist=False)
     del these_OMIs
     
     return(this_day_OMI)
