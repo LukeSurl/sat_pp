@@ -1563,7 +1563,7 @@ def error_bar_scatter(x_var,y_var,
 
 
 
-def load_geosfile(emfiles_folder,file_tag="trac_avg"):
+def load_geosfile(emfiles_folder,file_tag="trac_avg",columns=False):
     """Loads up emissions from one or several files"""
     
     export_dict = {} #eventually we'll populate this dictionary and return it
@@ -1740,17 +1740,31 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg"):
             #set units and lat/lon
             #we might end up setting these multiple times but
             #that's not a problem big deal
-            geos_dataset.unit = this_data.units
+            if columns:
+                geos_dataset.unit = "molec.cm-2"
+            else:
+                geos_dataset.unit = this_data.units
             tau_time_bounds = f.variables['time_bounds']
             dt_time_bounds = [ [tau_to_datetime(a),tau_to_datetime(b)] for [a,b] in tau_time_bounds]
             geos_dataset.set_lat_lon(lat,lon)
             
             if len(this_data[0]) != 1: #if there is vertical information
-                print "For this 3D variable, only lowest layer information will be read"
+                if columns:
+                    print "Calculating column of this variable"                   
+                    this_data_vv = np.array(this_data) * 1e-9 #convert to v/v
+                    box_height = np.array(f.variables['BXHGHT-$_BXHEIGHT']) * 100 #box height in cm
+                    air_den =    np.array(f.variables['TIME-SER_AIRDEN'])  # air density molec.cm-3
+                    air_amount = np.multiply(box_height,air_den) #air per grid box molec.cm-2
+                    this_data_col = np.sum(np.multiply(this_data_vv,air_amount),axis=1) #column molec.cm-3
+                else:    
+                    print "For this 3D variable, only lowest layer information will be read"
             else:
                 print "Variable is 2D"
-            for t in range(0,num_times):                
-                geos_dataset.add_data(this_data[t][0],time[t],new_time_bounds=dt_time_bounds[t])
+            for t in range(0,num_times):
+                if columns:
+                    geos_dataset.add_data(this_data_col[t],time[t],new_time_bounds=dt_time_bounds[t])
+                else:                
+                    geos_dataset.add_data(this_data[t][0],time[t],new_time_bounds=dt_time_bounds[t])
     
     print "Reading geos_chem variables done"
     #OK. let's turn this into a dictionary

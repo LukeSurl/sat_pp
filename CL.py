@@ -166,7 +166,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             associate_ind_geos(ida,geos_dict)
     
     elif top_level_menu_choice == "T": #load psuedo-satellite data
-        geos_dict = load_geosfile(current_geosfolder,file_tag="ts_")
+        geos_dict = load_geosfile(current_geosfolder,file_tag="ts_",columns=True)
         option = basic_menu("Done. Do you wish to associate"
                             " these data with the observations?",
                             [["Y","yes"],["N","no"]],quit_option=False)
