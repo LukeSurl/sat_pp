@@ -930,7 +930,7 @@ def da_select_by_shape(select_shape,da):
     """Reduces data_all objects down to only those points within designated bounds"""
     selector = select_shape.within(da.lat,da.lon)
     da.filter_all(selector)
-    return(da)
+    #return(da)
     
 def geo_select_circle(lat,lon,geo_selection,*datasets):
     """Reduces datasets down to only those points within a specified radius of a specified point"""

@@ -241,11 +241,11 @@ def OMI_from_HDF(HDF_file):
     NASA_AMF = np.array(df['AirMassFactor']).flatten()
     
     SC = d(
-           list(np.multiply(CA,NASA_AMF)),
+           list(CA),
            "SC",description="Slant Column Amount")
     SC.unit = "molec/cm2"
     DSC= d(
-           list(np.multiply(DCA,NASA_AMF)),
+           list(DCA),
            "DSC",description="Slant Column Uncertainty")
     DSC.unit = "molec/cm2"
     
@@ -474,7 +474,7 @@ def write_bsub(date_dos,AMF_rundir,AMF_input,AMF_output,geos_main):
     
     GEOS_ND51_files = '%sts_omi.YYYYMMDD.bpch' %geos_main
     AMF_inputs = add_slash(AMF_input) + "YYYY-MM-DD_for_AMF.csv"
-    bsub_stuff = 'bsub -q lotus -n 1 -o %s/log-YYYYMMDD.log -J amf-YYYYMMDD -W 2:00' %AMF_output
+    bsub_stuff = 'bsub -q short-serial -o %s/log-YYYYMMDD.log -J amf-YYYYMMDD -W 2:00' %AMF_output
     output_location = '%sYYYYMMDD_amfs.hcho' %AMF_output
     outfile = open(add_slash(AMF_input)+"batch_jobs.sh",'w')
     outfile.write("#!/bin/bash\n")
@@ -656,20 +656,22 @@ def pacific_correction(in_p1s,base_dir,run_name):
         good_i = np.isfinite(pacific_data.data["SC"].val)        
         #strictly restrict to designated area 
         
-        print len(pacific_data.lat)
+        print "pixels in pacific data downloaded: %i" %len(pacific_data.lat)
         
         #geo_select_rectangle_i(reference_sector_full,pacific_data)
         pacific_data = geo_select_rectangle_i(reference_sector_full,pacific_data)
 
         
-        print len(pacific_data.lat)
+        print "pixels in pacific data, full reference sector: %i" %len(pacific_data.lat)
 
         #No filtering of this data
 
         #make a pacific_data_equatorial object    
         pacific_data_eq = copy.deepcopy(pacific_data)
         pacific_data_eq = geo_select_rectangle_i(reference_sector_eq,pacific_data_eq)
-        geo_select_rectangle_i(reference_sector_eq,pacific_data_eq)
+        #geo_select_rectangle_i(reference_sector_eq,pacific_data_eq)
+        
+        print "pixels in pacific data, equatorial reference sector: %i" %len(pacific_data_eq.lat)
         
         good_i = np.isfinite(pacific_data.data["SC"].val)    
 

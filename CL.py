@@ -222,8 +222,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
 
             elif type_geo_select in ["rectangle","circle"]:
-                ida = da_select_by_shape(geo_selection,ida)
-                bda = da_select_by_shape(geo_selection,bda)                   
+                da_select_by_shape(geo_selection,ida)
+                da_select_by_shape(geo_selection,bda)                   
 
             #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
     
