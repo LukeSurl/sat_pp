@@ -29,56 +29,61 @@ binned_varnames= ["latitude",
                   "Country",
                   "State"]
 
+#load settings (if settings.p file exists)
+if os.path.isfile("settings.p"):
+    (country_statefile,
+    map_box,
+    xdim,ydim,
+    startdate,enddate,
+    type_geo_select,
+    geo_selection,
+    current_pickle,current_geosfolder
+    ) = cPickle.load(open("settings.p","rb"))
+else: #otherise, some default options
+    country_statefile="/home/users/lsurl/CL/country_state.csv"    
+    map_box = box(38., #north
+                  2.,  #south
+                  100.,#east
+                  65.) #west
+    xdim = 0.3125
+    ydim = 0.25
+    startdate = dt(2014,01,01, 0, 0, 0)
+    enddate   = dt(2014,12,31,23,59,59)
+    type_geo_select = "latlon"
+    geo_selection = box(38., #north
+                        2.,  #south
+                        100.,#east
+                        65.) #west                              
+    current_pickle = "NONE SELECTED"
+    current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014/" 
 
 #initialisation
-initial_choice = basic_menu(
-                "INITIAL MENU",
-                [
-                 ["1","Load default data"],
-                 ["2","Proceed without loading"]
-                ],
-                quit_option=False)
 
-#"Default settings"
-filtered_startdate = dt(1970,1,1)
-filtered_enddate   = dt(2099,12,31)
-filtered_folder    = \
-    "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/filtered/"
-corrections_folder= \
-    "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/corrections/"
-corr_type="basic"
-country_statefile="/home/users/lsurl/CL/country_state.csv"    
-#south = 2.
-#north = 38.
-#west = 65.
-#east = 100.
-#compass = [north,south,east,west]
+if current_pickle == "NONE SELECTED":
+    initial_choice = "2"
+else:
+    initial_choice = basic_menu(
+                    "INITIAL MENU",
+                    [
+                     ["1","Load pickles: %s" %current_pickle],
+                     ["2","Proceed without loading"]
+                    ],
+                    quit_option=False)
 
-map_box = box(38., #north
-              2.,  #south
-              100.,#east
-              65.) #west
 
-xdim = 0.3125
-ydim = 0.25
-startdate = dt(2014,01,01, 0, 0, 0)
-enddate   = dt(2014,12,31,23,59,59)
-type_geo_select = "latlon"
-geo_selection = box(38., #north
-                    2.,  #south
-                    100.,#east
-                    65.) #west
-                           
-current_pickle = "NONE SELECTED"
-current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014/"   
+##defunct - now part of CL_preprocess
+#filtered_startdate = dt(1970,1,1)
+#filtered_enddate   = dt(2099,12,31)
+#filtered_folder    = \
+#    "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/filtered/"
+#corrections_folder= \
+#    "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/corrections/"
+#corr_type="basic"
+
+  
 
 if initial_choice == "1":
     print "Loading default options"       
-    #current_pickle =   '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/pp/april2014'
-    current_pickle = '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014ED/pp/2014ED_india'
-    startdate = dt(2014,01,01, 0, 0, 0)
-    enddate   = dt(2014,12,31,23,59,59)
-    current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_2x25_tropchem_2012-2014'
     
     #ida is the main data holder for all individual data
     #it is of type ind_data_all and holds ind type objects
@@ -111,6 +116,18 @@ if initial_choice == "1":
 #main loop
 top_level_menu_choice = ""
 while top_level_menu_choice != "Z": #loop unless ordered to quit
+
+    #every time we get here, quickly re-save settings
+    cPickle.dump(
+    (country_statefile,
+    map_box,
+    xdim,ydim,
+    startdate,enddate,
+    type_geo_select,
+    geo_selection,
+    current_pickle,current_geosfolder
+    ),
+    open("settings.p","wb"))
 
     top_level_menu_title = "TOP LEVEL MENU\n" \
                "Current pickles loaded: %s\n" \
