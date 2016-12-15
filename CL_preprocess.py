@@ -3,6 +3,7 @@
 
 from datetime import datetime as dt
 from datetime import timedelta as td
+from datetime import date as date
 import h5py
 import os
 from os import listdir
@@ -20,6 +21,15 @@ from CL_run_management import run_select,new_run
 
 #This script will look up output from the AMF calculator
 #and also inspect the HDF5 files directly.
+
+
+class correction:
+    """A date, and its median slant and model numbers"""
+    def __init__(self,this_date):
+        self.date = this_date
+        self.med_obs = None #placeholder
+        self.med_geos = None #placeholder
+
 
 def preprocessing(base_dir=None,run_name=None):
     """control script for the pre-processing steps"""
@@ -43,11 +53,13 @@ def preprocessing(base_dir=None,run_name=None):
             print "[1] Download new 'main' satellite data"
             print "[2] Download new 'pacific' satellite data"
             print "[3] Extract data from main satellite files and generate input for AMF calculator"
+            print "[3b] Extract data from BRUG satellite files and generate input for AMF calculator"
             print "[4] Run AMF calculator"
+            print "[4b] Prepare slant-column only file"
             print "[5] Apply pacific correction to slant columns"
             print "[6] Read AMF output and calculate VCs"
             print "[7] Filter for various critera"
-            print "[8] Get equivalent BRUG data"
+            print "[8] Get equivalent BRUG data - processed"
             print "[A] Do steps 3-7"
         print "[M] Merge some pickles"
         print "[Z] Go to previous menu"
@@ -121,6 +133,20 @@ def preprocessing(base_dir=None,run_name=None):
             write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main)
             continue
         
+        if option == "3B":
+            this_box = box(40.,0.,105.,60.)
+            date_dos  = normal_from_BRUG(date_list,this_box,p1,amf_input)
+            
+            print "Enter AMF calculator directory"
+            amf_run_dir = os.path.join(base_dir,"amf581/")
+            print "Press enter to use %s" %amf_run_dir          
+            amf_run_dir_in = raw_input("-->")
+            if amf_run_dir_in !=  "":
+                amf_run_dir = amf_run_dir_in
+                      
+            write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main)
+            continue
+        
         if option == "4":
             print 'chmod +x %sbatch_jobs.sh' %amf_input
             os.system('chmod +x %sbatch_jobs.sh' %amf_input)
@@ -134,15 +160,25 @@ def preprocessing(base_dir=None,run_name=None):
             _ = raw_input("Press enter to continue-->")
             continue
         
+        if option == "4B":
+            prep_satellite_slants(date_list,p1,p4)
+        
         if option == "5": #apply pacific correction
             do_pacific = ""
             while do_pacific not in ["Y","N"]:
-                do_pacific = raw_input("Do pacific correction? Y/N").upper()       
+                do_pacific = raw_input("Do pacific correction? Y/N-->").upper()       
             print "Loading pickled data"
             in_p1s = load_daily_pickles(p1)
             if do_pacific == "Y":
-                print "Calculating corrections"
-                p2s = pacific_correction(in_p1s,base_dir,run_name)
+                b_or_dS = ""
+                while b_or_dS not in ["B","S"]:
+                    b_or_dS = raw_input("[B] Barkley correction (offline)\n[S] deSmedt correction-->").upper()
+                if b_or_dS == "S":                  
+                    print "Calculating corrections"
+                    p2s = pacific_correction(in_p1s,base_dir,run_name)
+                elif b_or_dS == "B":
+                    PC_pik = raw_input("Path to pacific correction pickle-->")
+                    p2s = barkley_correction(in_p1s,base_dir,PC_pik,run_name)
             else:
                 p2s = in_p1s
             print "Saving pickle"
@@ -336,7 +372,12 @@ def merge_OMI(all_OMIs,do_daylist=True):
                 pass
                 
             for dataset in merged.data:
-                merged.data[dataset].val.extend(OMI.data[dataset].val)
+                try:
+                    merged.data[dataset].val.extend(OMI.data[dataset].val)
+                except AttributeError: #numpy
+                    merged.data[dataset].val = np.append(
+                        merged.data[dataset].val,
+                        OMI.data[dataset].val)
     if do_daylist:
         del merged.meta["day"]
         all_days = list(set(daylist))
@@ -588,8 +629,12 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
                         sat_VC_list.append(np.nan)
                         sat_DVC_list.append(np.nan)
                     else:
-                        sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j])
+                        try:
+                            sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j]+OMI_in.meta["Median model VC in ref sector"]) #barkley correction, if present
+                        except KeyError:
+                            sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j])
                         sat_DVC_list.append(OMI_in.data['DSC'].val[j]/a_AMF[j])
+                            
             else:
                 #ULNs not perfectly aligned.
                 print "ULNs not aligned between %s and %s" %(
@@ -622,7 +667,75 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
     
     return(OMI_all)
 
+def prep_satellite_slants(date_list,p1,save_dir):
 
+    #loop through days
+    daily_new_OMIs = []
+    for date_clock in date_list :
+        print "Processing %s..." %date_clock.strftime("%Y-%m-%d")
+        #open this day's pickle
+        p1_path = p1 +"/" + date_clock.strftime("%Y-%m-%d")+"_OMI.p"
+        try:
+            OMI_in = pickle.load(open(p1_path,"rb"))
+        except IOError:
+            #file doesn't exist
+            if print_missing_dates:
+                print "%s does not exist" %pickle2_path           
+            continue #go to next date
+        
+        daily_new_OMIs.append(OMI_in)
+        del OMI_in
+        
+    print "Merging into one file..."
+    OMI_all  = merge_OMI(daily_new_OMIs)
+    
+    print "Filtering..."
+    num_pre_filter = len(OMI_all.lat)
+    print "Data points prior to filter: %i" %num_pre_filter
+    filter_i = []
+    for i in range(0,num_pre_filter):
+        if OMI_all.data["main data quality flag"].val[i] != 0 :
+            filter_i.append(False)
+            continue
+        if OMI_all.data["Xtrack quality flag"   ].val[i] != 0 :
+            filter_i.append(False)
+            continue
+        if OMI_all.data["SZA"                   ].val[i] > 70.:
+            filter_i.append(False)
+            continue
+        if OMI_all.data["cloud fraction"        ].val[i] > 0.4 :
+            filter_i.append(False)
+            continue
+        #if np.isnan(ida.data["sat_VC"       ].val[i]):
+        #    #AMF or pacific correction failed here
+        #    filter_i.append(False)
+        #    continue
+        if OMI_all.data["DSC"].val[i] > OMI_all.data["SC"].val[i]*3:
+            filter_i.append(False)
+            continue
+        #if we get this far, this data point has passed
+        filter_i.append(True)
+    #filter this data
+    OMI_all.filter_all(filter_i)
+
+    #add meta information about filtering
+    OMI_all.meta["Filtering criteria"] = \
+                "main data quaility flag == 0\n"+\
+                "Xtrack quaility flag == 0\n"+\
+                "Solar zenity angle <= 70.\n"+\
+                "Cloud fraction <= 0.4\n"+\
+                "DSC < SC*3"
+    OMI_all.meta["Filtering stats"] = \
+        {"Total datapoints":num_pre_filter,
+         "Retained datapoints":len(OMI_all.lat),
+         "Removed datapoints":num_pre_filter-len(OMI_all.lat)}
+    
+    print OMI_all.meta["Filtering stats"]     
+    
+    save_path = join(save_dir,"slants_filtered.p")
+    print "Saving as %s" %save_path
+    cPickle.dump(OMI_all,open(join(save_path),"wb"))
+        
 def pacific_correction(in_p1s,base_dir,run_name):
     """Corrects the data using pacific measurements"""
     
@@ -721,6 +834,27 @@ def pacific_correction(in_p1s,base_dir,run_name):
                + np.polyval(poly,p1.lat[i])
         
         out_p2s.append(p1)
+    
+    return(out_p2s)
+
+
+def barkley_correction(in_p1s,base_dir,PC_pik,run_name):
+    
+    PC_all = cPickle.load(open(PC_pik,"rb"))
+    out_p2s = []
+    
+    for in_p1 in in_p1s:
+        date_clock = in_p1.meta["day"]
+        
+        date_clock_date = date(date_clock.year,date_clock.month,date_clock.day)
+        print date_clock_date
+        today_corr = [PC_all[i] for i in range(0,len(PC_all)) if PC_all[i].date == date_clock_date][0]
+        
+        for i in range(0,len(in_p1.lat)):
+            in_p1.data["SC"].val[i] -= today_corr.med_obs
+        
+        in_p1.meta["Median model VC in ref sector"] = today_corr.med_geos
+        out_p2s.append(in_p1)
     
     return(out_p2s)
         
@@ -897,6 +1031,10 @@ def get_BRUG(date_list,this_box):
             print "%s cannot be accessed (may not exist)"%today_match_dir
             pass
     
+    #if no files return None
+    if HDF_files == []:
+        return None
+    
     start_date = min(date_list)
     end_date = max(date_list)
     
@@ -911,9 +1049,10 @@ def get_BRUG(date_list,this_box):
     BRUG_collection = []
     for H in HDF_files:
         print "Extracting from %s" %H
-        this_BRUG = OMI_BRUG_from_HDF(h5py.File(H))
+        this_BRUG = OMI_BRUG_from_HDF(h5py.File(H),this_box=this_box)
         #print (this_BRUG.lat)
-        this_BRUG_nest = geo_select_rectangle_i(this_box,this_BRUG)
+        #this_BRUG_nest = geo_select_rectangle_i(this_box,this_BRUG)
+        this_BRUG_nest = this_BRUG
         BRUG_collection.append(copy.deepcopy(this_BRUG_nest))
         del this_BRUG, this_BRUG_nest
     print "Merging..."
@@ -931,7 +1070,7 @@ def TAI93_to_UTC(TAI93):
     return(tai_epoch+td(seconds=TAI93))
 
 
-def OMI_BRUG_from_HDF(HDF_file):
+def OMI_BRUG_from_HDF(HDF_file,this_box=None):
     """Returns various sets of data from an OMI BRUG file as lists"""
      
     #shorthands
@@ -939,6 +1078,10 @@ def OMI_BRUG_from_HDF(HDF_file):
     gf = HDF_file['HDFEOS']['SWATHS']['Geolocation Fields']
     
     (n_scans,n_tracks) = df['H2CO Columns']["VCD"].shape #shape of the data
+    
+    
+    #QF array
+    QF_array_bool = np.array(df['H2CO Errors']['QF']).flatten()  == 1
     
     #get simple location data 
     #there are 5 lats for each data point in this file, just get the last one for centre
@@ -981,9 +1124,11 @@ def OMI_BRUG_from_HDF(HDF_file):
     
     #print "time bit end..."  
              
-    #AMF    
+    #AMF
+    
+    this_AMF = np.array(df['H2CO AMF']['AMF']).flatten()    
     AMF = d(
-            list(np.array(df['H2CO AMF']['AMF']).flatten()),
+            list(this_AMF),
             "BRUG_AMF",description="AMF (BRUG)")
     
     #VC    
@@ -992,34 +1137,113 @@ def OMI_BRUG_from_HDF(HDF_file):
             "BRUG_VC",description="Vertical column amount (BRUG)")
     VC.unit = "molec/cm2"
     
+
+    
+    #Slant column (destriped, normalised)
+    
+    slant = np.array(df['H2CO Columns']['SCD3']).flatten()
+    SC = d(
+            list(slant),
+            "SC",description="Slant column (BRUG)")
+    SC.unit = "molec/cm2"
+    
     #DVC
+    VC_error = np.divide(slant,this_AMF)
+     
     DVC = d(
-            list(np.array(df['H2CO Errors']['VCD0E_S']).flatten()),
+            list(VC_error),
             "BRUG_DVC",description="Vertical column uncertainty (BRUG)")
     DVC.unit = "molec/cm2"
     
-    #Normalised Slant
     
-    NSC = d(
-            list(np.array(df['H2CO Columns']['SCD3']).flatten()),
-            "BRUG_DVC",description="Normalised sland column (BRUG)")
-    NSC.unit = "molec/cm2"
+    #Slant column random errors)
+    
+    SCE_random = np.array(df['H2CO Errors']['SCDE_R']).flatten()
+    SCE_systematic = np.array(df['H2CO Errors']['SCDE_S']).flatten()
+    SCE_both = np.sqrt(np.add(np.multiply(SCE_random,SCE_random),np.multiply(SCE_systematic,SCE_systematic)))
+    
+    DSC = d(
+            list(SCE_both),
+            "DSC",description="Slant column error (BRUG)")
+    DSC.unit = "molec/cm2"
     
     #QF
+    
     QF = d(
             list(np.array(df['H2CO Errors']['QF']).flatten()),
             "BRUG_QF",description="Quality Flag (BRUG)")
     QF.unit = "molec/cm2"
+    
+    
+    #cloud fraction
+    CF = d(
+            list(np.array(df['Auxiliary Data']['CF']).flatten()),
+            "cloud fraction",description="cloud fraction")
+    CF.unit = "unitless"
+    
+    #cloud top pressure
+    CP = d(
+            list(np.array(df['Auxiliary Data']['CP']).flatten()),
+            "cloud top pressure",description="cloud top pressure")
+    CP.unit = "hPa"
+    
+    #SZA
+    SZA = d(
+            list(np.array(gf['SZA']).flatten()),
+            "SZA",description="solar zenith angle")
+    SZA.unit = "solar zenith angle"
+    
+    #VZA
+    VZA = d(
+            list(np.array(gf['LoSZA']).flatten()),
+            "VZA",description="viewing zenith angle")
+    VZA.unit = "viewing zenith angle"
     
     #day of file
     file_date = dt(int(gf['Year'][0]),int(gf['Month'][0]),int(gf['Day'][0]),0,0,0)
     
       
     OMI_BRUG_all = d_all(lat,lon,time=time)
-    OMI_BRUG_all.add_data([scan_n,track_n,AMF,VC,DVC,QF])
+    OMI_BRUG_all.add_data([scan_n,track_n,AMF,VC,DVC,SC,DSC,QF,CF,CP,SZA,VZA])
     OMI_BRUG_all.add_data([LAT_cor,LON_cor])
     OMI_BRUG_all.meta['day']=file_date
     
+    OMI_BRUG_all.filter_all(QF_array_bool)
+    
+    if this_box != None: #if filtering by box
+        geo_OK = (np.array(OMI_BRUG_all.lat) < this_box.n) *\
+                 (np.array(OMI_BRUG_all.lat) > this_box.s) *\
+                 (np.array(OMI_BRUG_all.lon) < this_box.e) *\
+                 (np.array(OMI_BRUG_all.lon) > this_box.w)
+        #print geo_OK
+        OMI_BRUG_all.filter_all(geo_OK)    
+    
     return(OMI_BRUG_all)                        
+
+def normal_from_BRUG(date_list,this_box,p1,amf_input):
+    date_dos = []
+    for today_date in date_list:
+        today_BRUG = get_BRUG([today_date],this_box)
+        if today_BRUG == None:
+            date_dos.append([today_date,False])
+        else:
+            date_dos.append([today_date,True])
+        
+        #assign ULN
+        today_BRUG.add_data(d(range(0,len(today_BRUG.lat)),"ULN",description="Unique Line Number"))
+        
+        today_BRUG.meta["day"] = today_date
+        
+        #save day's OMIs as pickle        
+        pickle_name = add_slash(p1)+today_date.strftime("%Y-%m-%d")+"_OMI.p"
+        print "Saving data as pickle: %s" %pickle_name
+        cPickle.dump(today_BRUG,open(pickle_name,"wb"))
+        
+        #write an AMF input .csv file        
+        AMF_write_name = today_date.strftime("%Y-%m-%d")+"_for_AMF.csv"
+        print "Writing AMF input: %s" %AMF_write_name 
+        write_for_AMF(today_BRUG,add_slash(amf_input),AMF_write_name)
+        
+    return(date_dos)        
       
 preprocessing(base_dir="/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP")         

@@ -61,7 +61,7 @@ map_box = box(38., #north
 
 xdim = 0.3125
 ydim = 0.25
-startdate = dt(2014,03,01, 0, 0, 0)
+startdate = dt(2014,01,01, 0, 0, 0)
 enddate   = dt(2014,12,31,23,59,59)
 type_geo_select = "latlon"
 geo_selection = box(38., #north
@@ -75,10 +75,10 @@ current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/g
 if initial_choice == "1":
     print "Loading default options"       
     #current_pickle =   '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014-04/pp/april2014'
-    current_pickle = '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014_06/pp/info'
-    startdate = dt(2014,06,01, 0, 0, 0)
-    enddate   = dt(2014,06,30,23,59,59)
-    current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014'
+    current_pickle = '/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/2014ED/pp/2014ED_india'
+    startdate = dt(2014,01,01, 0, 0, 0)
+    enddate   = dt(2014,12,31,23,59,59)
+    current_geosfolder = '/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_2x25_tropchem_2012-2014'
     
     #ida is the main data holder for all individual data
     #it is of type ind_data_all and holds ind type objects
@@ -125,9 +125,11 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
             ["O","Create binned from individual data"],
-            ["C","Assign country/state to data"],            
+            ["C","Assign country/state to data"],
+            ["CF","Assign country/state to data FAST"],                        
             ["B","Bin additional datasets"],
             ["N","Associate NDVI data"],
+            ["Ni","Associate NDVI data (individual)"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
             ["A","Load GEOS Chem trac_avg data"],
@@ -180,6 +182,11 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         #NDVI_dir = raw_input("Enter directory containing NDVI data-->")
         NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
         bda = assoicate_NDVI(NDVI_dir,map_box,bda,startdate,enddate)
+    
+    elif top_level_menu_choice == "NI": #associate NDVI inda
+        NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
+        NDVI_3D = NDVI_months_v2(startdate,enddate,NDVI_dir,0.1,0.1,map_box)
+        associate_NDVI_v2(ida,NDVI_3D,0.1,0.1,map_box,startdate)
                 
     elif top_level_menu_choice == "K": #plot geos chem data
         plot_geos_chem(geos_dict)
@@ -237,7 +244,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         "Binning data to %fx%f grid cells" %(ydim,xdim)   
         bda = create_binned_set(ida,map_box,xdim,ydim)
     
-    elif top_level_menu_choice == "C": #Assign country/state to newly-loaded pickles
+    elif top_level_menu_choice in ["C","CF"]: #Assign country/state to newly-loaded pickles
                 
         #Country and state matching
         print "Matching countries and states"
@@ -255,9 +262,14 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             do_ind_countrystate = raw_input("Assign to individual data points? Y/N -->").upper()
         if do_ind_countrystate in ["Y","y"]:
             print "Assigning country+state to indiv. data points"
-            (country,state) =\
-                region_matcher(csv_lat,csv_lon,csv_country,csv_state,
-                               ida.lat,ida.lon)
+            if top_level_menu_choice == "C":
+                (country,state) =\
+                    region_matcher(csv_lat,csv_lon,csv_country,csv_state,
+                                   ida.lat,ida.lon)
+            elif top_level_menu_choice == "CF":
+                (country,state) =\
+                    region_matcher_fast(csv_lat,csv_lon,csv_country,csv_state,
+                                   ida.lat,ida.lon)
                                
             #add these to ida properly
             ida.data['country'] = d(country,'country','Country observation falls within')
@@ -267,9 +279,14 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             
         if 'bda' in locals():                   
             print "Assigning country+state to binned data points"
-            (country_binned,state_binned) =\
-                region_matcher(csv_lat,csv_lon,csv_country,csv_state,
-                               bda.lat,bda.lon)
+            if top_level_menu_choice == "C":
+                (country_binned,state_binned) =\
+                    region_matcher(csv_lat,csv_lon,csv_country,csv_state,
+                                   bda.lat,bda.lon)
+            elif top_level_menu_choice == "CF":
+                (country_binned,state_binned) =\
+                    region_matcher_fast(csv_lat,csv_lon,csv_country,csv_state,
+                                   bda.lat,bda.lon)
             bda.data["country"] = d(country_binned,"country","Country")
             del country_binned
             bda.data["state"  ] = d(state_binned  ,"state"  ,"State"  )

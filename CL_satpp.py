@@ -180,18 +180,24 @@ class d_all:
     def filter_all(self,filter_list):
         """For filer_list the same length as the data, keeps only datapoints where filter_list == True"""
         
+        filter_as_np = np.array(filter_list)
+        
+        print "Filtering"
+        print "Start: %i" %len(self.lat)
         all_indexes = range(0,len(self.lat))
         
         #core sets
-        self.lat = [self.lat[i]  for i in all_indexes if filter_list[i]]
-        self.lon = [self.lon[i]  for i in all_indexes if filter_list[i]]
+        self.lat = list(np.array(self.lat)[filter_as_np])
+        self.lon = list(np.array(self.lon)[filter_as_np])
         if self.time != None:
-            self.time= [self.time[i] for i in all_indexes if filter_list[i]]
+            self.time = list(np.array(self.time)[filter_as_np])
         
         #data sets
         for key in self.data:
-            print key    
-            self.data[key].val = [self.data[key].val[i] for i in all_indexes if filter_list[i]]
+            #print key    
+            self.data[key].val = list(np.array(self.data[key].val)[filter_as_np])
+        
+        print "End: %i" %len(self.lat)
             
     def add_data(self,new_data):
         #adds a new d object, or multiple d objects
@@ -1258,6 +1264,53 @@ def region_matcher(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
         return(country_out,state_out)
     else:
         return(country_out)
+        
+def region_matcher_fast(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
+
+    """A fast version of region_matcher that only works for country_state.csv"""
+    
+    num_grid = len(lat)
+    
+    #np arrays
+    (cs_lat,cs_lon,lat,lon) = (np.array(cs_lat),np.array(cs_lon),np.array(lat),np.array(lon))
+    
+    #get i and j indexes
+    
+    j = np.around(np.divide((lat-2.),0.25))
+    j = np.maximum(j,np.zeros_like(j))
+    j = np.minimum(j,np.zeros_like(j)+144)
+    
+    i = np.around(np.divide((lon-65.),0.3125))
+    i = np.maximum(i,np.zeros_like(i))
+    i = np.minimum(i,np.zeros_like(i)+112)
+    ind = np.add(113*j,i)
+    
+    print len(j)
+    print len(ind)
+    print np.min(ind)
+    print np.max(ind)
+    print len(cs_country)
+    
+    print "got indexes"
+    country_out = []
+    if states:
+        state_out = []
+    
+    for line in range(0,num_grid):
+        if line % 1000 == 0:
+            print "Assigning %i of %i" %(line,num_grid)
+        try:    
+            country_out.append(cs_country[int(ind[line])])
+            if states:
+                state_out.append(cs_state[int(ind[line])])
+        except IndexError:
+            print "line = %i" %line
+            print "ind[line] = %g" %ind[line]
+            raise ValueError
+    if states:
+        return(country_out,state_out)
+    else:
+        return(country_out)        
 
 def add_slash(string):
     """Adds a trailing / character if string does not currently end with one"""
@@ -1392,11 +1445,16 @@ def two_var_comparison(ida):
                         print "Type C to change, or press ENTER to plot"
                         opt = raw_input("-->").upper()
                         if opt == "C":
-                           axes_lims[0] = input("New value for x axis minimum-->")
-                           axes_lims[1] = input("New value for x axis maximum-->")
-                           axes_lims[2] = input("New value for y axis minimum-->")
-                           axes_lims[3] = input("New value for y axis maximum-->")
-                           alpha = input("Alpha value ('auto' for automatic) -->")
+                            axes_lims[0] = input("New value for x axis minimum-->")
+                            axes_lims[1] = input("New value for x axis maximum-->")
+                            axes_lims[2] = input("New value for y axis minimum-->")
+                            axes_lims[3] = input("New value for y axis maximum-->")
+                            while True:
+                                try:
+                                    alpha = input("Alpha value ('auto' for automatic) -->")
+                                    break
+                                except NameError:
+                                    print "Not valid input. Put 'single quotes' around text input"
                         elif opt == "":
                             goplot = True
                         
