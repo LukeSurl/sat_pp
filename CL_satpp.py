@@ -1040,10 +1040,15 @@ def time_cycle(ida,data_key,stat_choice,
         time_scatter(time_collection,stat_collection,
                      title=plot_title,
                      x_label=x_label,y_label=y_label,alpha=1.0)
+                     
+        print time_collection
+        print stat_collection
+        _ = raw_input("Press enter to continue")
     
     return(stat_collection,time_collection,time_bounds_collection)
 
 def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha=1.0):
+    
     if yerr == []:
         plt.plot(time, y, alpha=alpha, color='g',marker="o")
     else:
@@ -2180,4 +2185,50 @@ def assoicate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
     bda.data[this_name].unit = ""
                
     return(bda)
-                
+
+def write_as_csv(xda):
+    csv_out = raw_input("Enter full path of lcoation for CSV file-->")
+    wf = open(csv_out,'w')
+    lat_to_write = np.array(xda.lat)
+    lon_to_write = np.array(xda.lon)
+    
+    do_time = False
+    #if len(xda.time) != 0:
+    #    do_time = True
+    #    time_to_write = np.array(xda.time)
+    #else:
+    #    do_time = False
+        
+    selectvar_menu_title = "Choose variable:"
+    [selectvar_menu_text,selectvar_answers_dict] = xda.make_menu()
+    selectvar_menu_choice = basic_menu(selectvar_menu_title,
+                                  selectvar_menu_text,
+                                  quit_option=True)
+    if selectvar_menu_choice == "Z":
+        return
+    
+    the_key =      selectvar_answers_dict[selectvar_menu_choice]   
+    the_var =      np.array(xda.data[the_key].val)   
+    for i in range(len(xda.lat)):
+        if do_time:
+            this_time_to_write = time_to_write[i]
+            wf.write(str(this_time_to_write.year))
+            wf.write(",")
+            wf.write(str(this_time_to_write.month))
+            wf.write(",")
+            wf.write(str(this_time_to_write.day))
+            wf.write(",")
+            wf.write(str(this_time_to_write.hour))
+            wf.write(",")
+            wf.write(str(this_time_to_write.minute))
+            wf.write(",")
+            wf.write(str(this_time_to_write.second))
+            wf.write(",")
+        wf.write(str(lat_to_write[i]))
+        wf.write(",")
+        wf.write(str(lon_to_write[i]))
+        wf.write(",")
+        wf.write(str(the_var[i]))
+        wf.write("\n")
+    wf.close()
+    return           

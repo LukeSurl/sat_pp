@@ -341,7 +341,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ubd_menu_text  = [
                 ["1","Plot gridded data on map"],
                 ["2","Compute basic statistics"],
-                ["3","Compare datasets"]
+                ["3","Compare datasets"],
+                ["4","Write out as CSV"]
                 ]
             
             ubd_menu_choice = basic_menu(ubd_menu_title,
@@ -389,6 +390,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 
             elif ubd_menu_choice == "3": #compare_datasets 
                 two_var_comparison(bda)
+                
+            elif ubd_menu_choice == "4": #write as CSV
+                write_as_csv(bda)
                      
     elif top_level_menu_choice == "2": #Indiv data
         #uid = use individual data
