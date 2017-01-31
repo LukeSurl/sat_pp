@@ -198,7 +198,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     elif top_level_menu_choice == "N": #associate NDVI
         #NDVI_dir = raw_input("Enter directory containing NDVI data-->")
         NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
-        bda = assoicate_NDVI(NDVI_dir,map_box,bda,startdate,enddate)
+        bda = associate_NDVI(NDVI_dir,map_box,bda,startdate,enddate)
     
     elif top_level_menu_choice == "NI": #associate NDVI inda
         NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"

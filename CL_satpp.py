@@ -3,8 +3,13 @@
 
 from datetime import datetime as dt
 from datetime import timedelta as td
-
-from matplotlib.patches import Polygon
+import sys
+try:
+    from matplotlib.patches import Polygon
+except ImportError:
+    print "Need to be in a (virtual) environment with several modules pip installed to work!"
+    sys.exit()
+    
 import matplotlib.pyplot as plt
 import matplotlib.colorbar as colorbar
 from mpl_toolkits.basemap import Basemap
@@ -18,7 +23,6 @@ import scipy.stats as scistats
 from numbers import Number
 from os import listdir
 from os.path import isfile, join
-import sys
 from bpch import bpch
 from dateutil.relativedelta import relativedelta
 import copy
@@ -1071,28 +1075,28 @@ def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=Fals
     if stat == "mean" : #mean of values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,np.nanmean,bins=[num_xbins,num_ybins],
-            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
             expand_binnumbers=True)
     elif stat == "stdev" : #standard deviation of values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,np.nanstd,bins=[num_xbins,num_ybins],
-            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
             expand_binnumbers=True)
     elif stat == "sum" : #sum of all values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,np.nansum,bins=[num_xbins,num_ybins],
-            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
             expand_binnumbers=True)
     elif stat == "count" : #count of number of values in each box
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,notnancount,bins=[num_xbins,num_ybins],
-            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
             expand_binnumbers=True)
     elif stat == "quadsum" : #sum of squares of all values
         qvals = list(np.multiply(vals,vals))
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,qvals,np.nansum,bins=[num_xbins,num_ybins],
-            range=[[map_box.w-xdim/2,map_box.e+xdim/2],[map_box.s-ydim/2,map_box.n+ydim/2]],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
             expand_binnumbers=True)
     
     #can also work out lats, lons and index map of bins.
@@ -2063,17 +2067,27 @@ def bin_extra(ida,bda):
             for pair in be2_menu_text:
                 if pair[0] == be2_menu_choice:
                     stat_choice_text = pair[1]
-                    
-            this_binned = \
+           
+            (lat_list,lon_list,this_binned,null1,null2,null3) = \
                binner(ida.lat,ida.lon,
                       ida.data[data_key].val,
                       bda.meta["Area"],
                       stat=stat_choice_text,
                       xdim=bda.meta["Binning dimensions"][0],
-                      ydim=bda.meta["Binning dimensions"][1])
+                      ydim=bda.meta["Binning dimensions"][1],
+                      do_extras=True)
+            
+            del null1,null2,null3
                
             this_name = ida.data[data_key].name
             this_description = ida.data[data_key].description
+            
+            this_binned = grid_match(bda,this_binned,lat_list,lon_list)
+            if this_binned==None:
+                _ = raw_input("Matching failed. Press enter to continue -->")
+                return(bda)
+            
+            
             bda.data[this_name] = d(this_binned,this_name,description=this_description+": "+stat_choice_text)
             #units are same as in ida, unless this is a count (then it's unitless)
             if stat_choice_text in ["mean","standard deviation"]:
@@ -2082,6 +2096,35 @@ def bin_extra(ida,bda):
                 bda.data[this_name].unit = ""
             
             return(bda)           
+
+def grid_match(bda,new_data,new_lat,new_lon):
+    #if new_data is created by gridding onto the grid of bda, there will be issues if bda does not cover a complete rectangular area.
+    #so, this routine goes point-by-point in bda, and finds the associated point in new_data
+    
+    matched_data = []
+    j = 0
+    new_data_len = len(new_data)
+    for i in range(len(bda.lat)):
+        (lat_to_match,lon_to_match) = (bda.lat[i],bda.lon[i])
+        cycle_round=0
+        while True:
+            if bda.lat[i] == new_lat[j] and bda.lon[i] == new_lon[j]:
+                matched_data.append(new_data[j])
+                cycle_round=0
+                break
+            else:
+                j+=1
+                if j >= new_data_len:
+                    j=0
+                    cycle_round+=1
+                    if cycle_round>=2:
+                        print 'Cannot match grid point for lat=%g, lon=%g' %(bda.lat[i],bda.lon[i])
+                        return(None)
+    #return new data as list
+    return(matched_data)
+    
+                    
+        
 
 def criteria_filtering(ida):
     """Filter based on values"""
@@ -2154,7 +2197,7 @@ def only_months(ida):
     ida.filter_all(keep)
     return(ida)
 
-def assoicate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
+def associate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
     
     #check time bounds
     #earliest = min(ida.time)
@@ -2171,13 +2214,19 @@ def assoicate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
     NDVI_da = d_all(lat_NDVI,lon_NDVI,time=NDVI_dt)
     NDVI_da.add_data(d(NDVI,"NDVI",description="Normalised Diffusive Vegitation Index (NDVI)")) 
     
-    this_binned = \
+    (lat_list,lon_list,this_binned,null1,null2,null3) = \
        binner(NDVI_da.lat,NDVI_da.lon,
               NDVI_da.data["NDVI"].val,
               bda.meta["Area"],
               stat="mean",
               xdim=bda.meta["Binning dimensions"][0],
-              ydim=bda.meta["Binning dimensions"][1])
+              ydim=bda.meta["Binning dimensions"][1],
+              do_extras=True)
+    
+    this_binned = grid_match(bda,this_binned,lat_list,lon_list)
+    if this_binned==None:
+        _ = raw_input("Matching failed. Press enter to continue -->")
+        return(bda)   
        
     this_name = NDVI_da.data["NDVI"].name
     this_description = NDVI_da.data["NDVI"].description
@@ -2187,7 +2236,7 @@ def assoicate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
     return(bda)
 
 def write_as_csv(xda):
-    csv_out = raw_input("Enter full path of lcoation for CSV file-->")
+    csv_out = raw_input("Enter full path of location for CSV file-->")
     wf = open(csv_out,'w')
     lat_to_write = np.array(xda.lat)
     lon_to_write = np.array(xda.lon)
