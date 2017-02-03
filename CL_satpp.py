@@ -2197,7 +2197,7 @@ def only_months(ida):
     ida.filter_all(keep)
     return(ida)
 
-def associate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
+def associate_CSV(CSV_dir,map_box,bda,earliest,latest,CSV_name,CSV_desc,new_units=""):
     
     #check time bounds
     #earliest = min(ida.time)
@@ -2205,18 +2205,18 @@ def associate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
     
     
     #read NDVI data
-    (lat_NDVI,lon_NDVI,NDVI,year_NDVI,month_NDVI) = NDVI_months(earliest,latest,NDVI_dir,0.1,0.1,map_box)
+    (lat_CSV,lon_CSV,data_CSV,year_CSV,month_CSV) = CSV_months(earliest,latest,CSV_dir,0.1,0.1,map_box,CSV_name)
     
-    NDVI_dt = []
-    for i in range(0,len(NDVI)):
-        NDVI_dt.append(dt(year_NDVI[i],month_NDVI[i],1,0,0,0))
+    CSV_dt = []
+    for i in range(0,len(data_CSV)):
+        CSV_dt.append(dt(year_CSV[i],month_CSV[i],1,0,0,0))
     
-    NDVI_da = d_all(lat_NDVI,lon_NDVI,time=NDVI_dt)
-    NDVI_da.add_data(d(NDVI,"NDVI",description="Normalised Diffusive Vegitation Index (NDVI)")) 
+    CSV_da = d_all(lat_CSV,lon_CSV,time=CSV_dt)
+    CSV_da.add_data(d(data_CSV,CSV_name,description=CSV_desc)) 
     
     (lat_list,lon_list,this_binned,null1,null2,null3) = \
-       binner(NDVI_da.lat,NDVI_da.lon,
-              NDVI_da.data["NDVI"].val,
+       binner(CSV_da.lat,CSV_da.lon,
+              CSV_da.data[CSV_name].val,
               bda.meta["Area"],
               stat="mean",
               xdim=bda.meta["Binning dimensions"][0],
@@ -2228,10 +2228,13 @@ def associate_NDVI(NDVI_dir,map_box,bda,earliest,latest):
         _ = raw_input("Matching failed. Press enter to continue -->")
         return(bda)   
        
-    this_name = NDVI_da.data["NDVI"].name
-    this_description = NDVI_da.data["NDVI"].description
+    this_name = CSV_da.data[CSV_name].name
+    this_description = CSV_da.data[CSV_name].description
+    
+    if this_name in bda.data: #if we aready have a dataset with this name, delete it.
+        del bda.data[this_name]
     bda.data[this_name] = d(this_binned,this_name,description=this_description+": mean")
-    bda.data[this_name].unit = ""
+    bda.data[this_name].unit = new_units
                
     return(bda)
 

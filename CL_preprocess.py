@@ -519,7 +519,7 @@ def write_bsub(date_dos,AMF_rundir,AMF_input,AMF_output,geos_main):
     """writes a shell script that can be executed to do AMF processing in parallel"""
     #fixed variables
     
-    GEOS_ND51_files = '%sts_satellite_omi.YYYYMMDD.bpch' %geos_main
+    GEOS_ND51_files = '%sts_omi.YYYYMMDD.bpch' %geos_main
     AMF_inputs = add_slash(AMF_input) + "YYYY-MM-DD_for_AMF.csv"
     bsub_stuff = 'bsub -q short-serial -o %s/log-YYYYMMDD.log -J amf-YYYYMMDD -W 2:00' %AMF_output
     output_location = '%sYYYYMMDD_amfs.hcho' %AMF_output

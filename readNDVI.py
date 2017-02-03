@@ -122,11 +122,19 @@ def add_months_dt(sourcedate,months):
     return dt(year,month,day,sourcedate.hour,sourcedate.minute,sourcedate.second)
 
 
-def readNDVI(NDVIfolder,year,month,xres,yres,compass):
+def readNDVI(NDVIfolder,year,month,xres,yres,compass,datatype="NDVI"):
     
-    #data from http://neo.sci.gsfc.nasa.gov/view.php?datasetId=MOD13A2_M_N
-    #work out the file name to be read
-    filename = '%s/MOD13A2_M_NDVI_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
+    if datatype=="NDVI":
+        #data from http://neo.sci.gsfc.nasa.gov/view.php?datasetId=MOD13A2_M_N
+        #work out the file name to be read
+        filename = '%s/MOD13A2_M_NDVI_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
+    elif datatype=="LAI":
+        #work out the file name to be read
+        filename = '%s/MOD15A2_M_LAI_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
+    elif datatype == "Fire count":
+        #work out the file name to be read
+        filename = '%s/MOD14A1_M_FIRE_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
+            
     print filename
     
     f = open(filename,'r')
@@ -137,15 +145,20 @@ def readNDVI(NDVIfolder,year,month,xres,yres,compass):
     lats = []
     lons = []
     NDVI = []
-    
+    l = 0
     for line in f:
+        l+=1
         line = line.strip() #get rid of the newline character
         columns = line.split(",") #split by columns, comma separated
         for i in range(0,numberofcols):
-            #"{0:.3f}".format(x) keeps things at 3dp, avoids proiferation of floating point errors.
-            lats.append(float("{0:.3f}".format(latcounter)))
-            lons.append(float("{0:.3f}".format(-180.+(xres*(i+0.5)))))
-            NDVI.append(float(columns[i]))
+            try:
+                #"{0:.3f}".format(x) keeps things at 3dp, avoids proiferation of floating point errors.
+                lats.append(float("{0:.3f}".format(latcounter)))
+                lons.append(float("{0:.3f}".format(-180.+(xres*(i+0.5)))))
+                NDVI.append(float(columns[i]))
+            except IndexError:
+                print "Index error at Line number %i, column number %i" %(l,i)
+                sys.exit() 
         latcounter -= yres
         
     north = compass.n
@@ -171,8 +184,9 @@ def readNDVI(NDVIfolder,year,month,xres,yres,compass):
     
     return(lats,lons,NDVI_sea0)
     
-def NDVI_months(startdate,enddate,NDVIfolder,xres,yres,compass):
+def CSV_months(startdate,enddate,NDVIfolder,xres,yres,compass,CSV_name):
     """Returns NDVIs for the months between two dates, plus time & location info"""
+    #should be generic to all CSV form data now.
         
     lats_all = []
     lons_all = []
@@ -184,9 +198,9 @@ def NDVI_months(startdate,enddate,NDVIfolder,xres,yres,compass):
     while monthcounter <= enddate:
         year  = monthcounter.year
         month = monthcounter.month
-        print "loading NDVI data for %i-%02d" %(year,month)
+        print "loading %s data for %i-%02d" %(CSV_name,year,month)
         try:
-            (lats_thismonth,lons_thismonth,NDVI_thismonth) = readNDVI(NDVIfolder,year,month,xres,yres,compass)
+            (lats_thismonth,lons_thismonth,NDVI_thismonth) = readNDVI(NDVIfolder,year,month,xres,yres,compass,datatype=CSV_name)
         except IOError: #if file doesn't exist
             print "No file for %i-%i" %(year,month)
             monthcounter = add_months_dt(monthcounter,1)

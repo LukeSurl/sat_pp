@@ -145,7 +145,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["C","Assign country/state to data"],
             ["CF","Assign country/state to data FAST"],                        
             ["B","Bin additional datasets"],
-            ["N","Associate NDVI data"],
+            ["N","Associate CSV-form data"],
             ["Ni","Associate NDVI data (individual)"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
@@ -197,8 +197,25 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     
     elif top_level_menu_choice == "N": #associate NDVI
         #NDVI_dir = raw_input("Enter directory containing NDVI data-->")
-        NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
-        bda = associate_NDVI(NDVI_dir,map_box,bda,startdate,enddate)
+        
+        option=basic_menu("Which type of gridded data to associate?",
+                          [["N","NDVI"],["L","LAI"],["F","Fire count"]],
+                          quit_option=True)
+        if option=="N":
+            CSV_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
+            CSV_name = "NDVI"
+            CSV_desc = "Normalised Diffusive Vegitation Index (NDVI)"
+        elif option =="L":
+            CSV_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/LAI"
+            CSV_name = "LAI"
+            CSV_desc = "Leaf Area Index (LAI)"
+        elif option =="F":
+            CSV_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire"
+            CSV_name = "Fire count"
+            CSV_desc= "MODIS fire count (fire pixels/1000km2/day)"
+        elif option=="Z":
+            continue #quit menu    
+        bda = associate_CSV(CSV_dir,map_box,bda,startdate,enddate,CSV_name,CSV_desc)
     
     elif top_level_menu_choice == "NI": #associate NDVI inda
         NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
