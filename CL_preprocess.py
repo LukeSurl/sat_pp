@@ -14,7 +14,7 @@ import numpy as np
 import copy
 
 from CL_satpp import box,d,d_all,add_slash,clearscreen,basic_menu,geo_select_rectangle_i
-from CL_run_management import run_select,new_run
+from CL_run_management import run_select,new_run,change_dates
 #from CL_omi_matchup import match_BRUG
 
 #Tools to filter satellite observational data.
@@ -61,6 +61,7 @@ def preprocessing(base_dir=None,run_name=None):
             print "[7] Filter for various critera"
             print "[8] Get equivalent BRUG data - processed"
             print "[A] Do steps 3-7"
+            print "[X] Change date range"
         print "[M] Merge some pickles"
         print "[Z] Go to previous menu"
         option = raw_input("-->").upper()
@@ -177,7 +178,9 @@ def preprocessing(base_dir=None,run_name=None):
                     print "Calculating corrections"
                     p2s = pacific_correction(in_p1s,base_dir,run_name)
                 elif b_or_dS == "B":
-                    PC_pik = raw_input("Path to pacific correction pickle-->")
+                    PC_pik = raw_input("Path to pacific correction pickle. Enter for /group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p -->")
+                    if PC_pik == "":
+                        PC_pik = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p"
                     p2s = barkley_correction(in_p1s,base_dir,PC_pik,run_name)
             else:
                 p2s = in_p1s
@@ -199,6 +202,10 @@ def preprocessing(base_dir=None,run_name=None):
         
         if option == "M":
             merge_pickles()
+        
+        if option == "X":
+            run_dir = add_slash(os.path.join(base_dir,run_name))
+            change_dates(run_dir)
 
 def download_sat(base_dir,run_name,main_pacific):
     clearscreen()
@@ -330,7 +337,8 @@ def OMI_from_HDF(HDF_file):
                     SAA,SZA,VAA,VZA,
                     SC,DSC,NASA_VC,
                     cloud_fraction,cloud_pressure,
-                    main_data_quality_flag,Xtrack_flag])    
+                    main_data_quality_flag,Xtrack_flag])
+                        
     return(OMI_all)
 
 def merge_pickles():
@@ -395,6 +403,9 @@ def write_for_AMF(OMI_all,write_directory,write_name):
     outfile = open(write_directory + write_name,'w')
     delimiter=","
     for line in range(0,len_all):
+        if OMI_all.data["SZA"].val[line] <= 0. or OMI_all.data["SZA"].val[line] >= 90.:
+            print "Bad SZA found while compiling %s. This value has been skipped" %write_name
+            continue #avoid corrupting SZAs
         outfile.write("%i,%i,%i,%f,%f,%g,%g,%g,%g\n" \
                         %(line,
                           OMI_all.data["scan"].val[line],
@@ -491,6 +502,21 @@ def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save):
         #assign ULN
         this_day_OMI.add_data(d(range(0,len(this_day_OMI.lat)),"ULN",description="Unique Line Number"))
         
+        #remove troublesome -ve SZAs
+        print "Removing -ve SZAs"
+        filter_i = []
+        points_removed = 0
+        for i in range(0,len(this_day_OMI.lat)):
+            if this_day_OMI.data["SZA"                   ].val[i] <= 0.:
+                filter_i.append(False)
+                points_removed += 1
+            else:
+                filter_i.append(True)
+        print "Removed %i points" %points_removed 
+        #filter this data
+        this_day_OMI.filter_all(filter_i)
+        
+        
         #save day's OMIs as pickle        
         pickle_name = add_slash(OMI_save)+date_clock.strftime("%Y-%m-%d")+"_OMI.p"
         print "Saving data as pickle: %s" %pickle_name
@@ -519,7 +545,7 @@ def write_bsub(date_dos,AMF_rundir,AMF_input,AMF_output,geos_main):
     """writes a shell script that can be executed to do AMF processing in parallel"""
     #fixed variables
     
-    GEOS_ND51_files = '%sts_omi.YYYYMMDD.bpch' %geos_main
+    GEOS_ND51_files = '%sts_satellite_omi.YYYYMMDD.bpch' %geos_main
     AMF_inputs = add_slash(AMF_input) + "YYYY-MM-DD_for_AMF.csv"
     bsub_stuff = 'bsub -q short-serial -o %s/log-YYYYMMDD.log -J amf-YYYYMMDD -W 2:00' %AMF_output
     output_location = '%sYYYYMMDD_amfs.hcho' %AMF_output
@@ -605,52 +631,59 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
         
         len_OMI=len(OMI_in.data['ULN'].val)
         len_a  =len(a_ULN)
-        
+        print "len(OMI) = %i, len(amf) = %i" %(len_OMI,len_a)
         AMF_list = []
         sat_VC_list = []
         sat_DVC_list = []
         geos_VC_list = []
         #print OMI_in.data['ULN'].val[100:200]
         #print a_ULN[100:200]
-        for j in range(0,len_OMI):
-            if OMI_in.data['ULN'].val[j] == a_ULN[j]:
-                #simple match
-                if a_GEOS[j] <= 0.:
-                    geos_VC_list.append(np.nan)
-                else:                
-                    geos_VC_list.append(a_GEOS[j])
-                if np.isnan(a_AMF[j]) or a_AMF[j] <= 0.:
-                    AMF_list.append(np.nan)
+        corrupt_day = False
+        for j in range(0,len_a):
+            
+            if OMI_in.data['ULN'].val[j] != a_ULN[j]:
+                corrupt_day = True
+                print "Data for this day is corrupted. Omitting"
+                break
+            #simple match
+            if a_GEOS[j] <= 0.:
+                geos_VC_list.append(np.nan)
+            else:                
+                geos_VC_list.append(a_GEOS[j])
+            if np.isnan(a_AMF[j]) or a_AMF[j] <= 0.:
+                AMF_list.append(np.nan)
+                sat_VC_list.append(np.nan)
+                sat_DVC_list.append(np.nan)
+            else:
+                AMF_list.append(a_AMF[j])
+                if OMI_in.data['SC'].val[j] == np.nan:
                     sat_VC_list.append(np.nan)
                     sat_DVC_list.append(np.nan)
                 else:
-                    AMF_list.append(a_AMF[j])
-                    if OMI_in.data['SC'].val[j] == np.nan:
-                        sat_VC_list.append(np.nan)
-                        sat_DVC_list.append(np.nan)
-                    else:
-                        try:
-                            sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j]+OMI_in.meta["Median model VC in ref sector"]) #barkley correction, if present
-                        except KeyError:
-                            sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j])
+                    try:
+                        sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j]+OMI_in.meta["Median model VC in ref sector"]) #barkley correction, if present
+                        sat_DVC_list.append(OMI_in.data['DSC'].val[j]/a_AMF[j]+OMI_in.meta["Median model VC in ref sector"])
+                    except KeyError:
+                        print "non-barkley"
+                        sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j])
                         sat_DVC_list.append(OMI_in.data['DSC'].val[j]/a_AMF[j])
                             
-            else:
-                #ULNs not perfectly aligned.
-                print "ULNs not aligned between %s and %s" %(
-                    pickle2_path,AMF_path)
-                print "You need to do more coding Luke"
-                raise IOError
-        
-        OMI_in.add_data(d(AMF_list,"AMF","Air mass factor"))
-        OMI_in.add_data(d(sat_VC_list,"sat_VC","Observed vertical HCHO column"))
-        OMI_in.data["sat_VC"].unit = 'molec/cm2'
-        OMI_in.add_data(d(sat_DVC_list,"sat_DVC","Error in observed vertical HCHO column"))
-        OMI_in.data["sat_DVC"].unit = 'molec/cm2'
-        OMI_in.add_data(d(geos_VC_list,"geos_VC","Modelled vertical HCHO column"))
-        OMI_in.data["geos_VC"].unit = 'molec/cm2'
-        
-        daily_new_OMIs.append(copy.deepcopy(OMI_in))        
+            #else:
+            #    #ULNs not perfectly aligned.
+            #    print "ULNs not aligned between %s and %s" %(
+            #        pickle2_path,AMF_path)
+            #    print "You need to do more coding Luke"
+            #    raise IOError
+        if corrupt_day == False:
+            OMI_in.add_data(d(AMF_list,"AMF","Air mass factor"))
+            OMI_in.add_data(d(sat_VC_list,"sat_VC","Observed vertical HCHO column"))
+            OMI_in.data["sat_VC"].unit = 'molec/cm2'
+            OMI_in.add_data(d(sat_DVC_list,"sat_DVC","Error in observed vertical HCHO column"))
+            OMI_in.data["sat_DVC"].unit = 'molec/cm2'
+            OMI_in.add_data(d(geos_VC_list,"geos_VC","Modelled vertical HCHO column"))
+            OMI_in.data["geos_VC"].unit = 'molec/cm2'            
+            daily_new_OMIs.append(copy.deepcopy(OMI_in))
+                    
         del OMI_in
                 
         
@@ -919,6 +952,12 @@ def save_daily_pickles(p_in,directory,suffix):
 def filtering(p3_dir,p4_dir):
     """Filters out data which fails various quality standards"""
     
+    #let the user choose default or custom filtering option
+    filter_option = basic_menu("Default or custom filtering?",
+                               [["1","Default filtering"],
+                                ["2","Custom filtering"]],
+                                quit_option=True)
+    
     #load_the_pickle
     p3_files = [add_slash(p3_dir)+f
               for f in listdir(add_slash(p3_dir))
@@ -941,11 +980,7 @@ def filtering(p3_dir,p4_dir):
     
     ida = cPickle.load(open(p3_file,"rb"))
    
-    #let the user choose default or custom filtering option
-    filter_option = basic_menu("Default or custom filtering?",
-                               [["1","Default filtering"],
-                                ["2","Custom filtering"]],
-                                quit_option=True)
+
     if filter_option == "Z":
         return
     elif filter_option == "1":

@@ -9,6 +9,26 @@ from datetime import timedelta as td
 import pickle
 import cPickle
 
+def change_dates(run_dir):
+    #define dates
+    print "What is the first date to be considered in this run?"
+    start_year = input("YEAR-->")
+    start_month = input("MONTH-->")
+    start_day = input("DAY-->")
+    start_date = dt(start_year,start_month,start_day,0,0,0)
+    print "What is the last date to be considered in this run?"
+    end_year = input("YEAR-->")
+    end_month = input("MONTH-->")
+    end_day = input("DAY-->")
+    end_date = dt(end_year,end_month,end_day,0,0,0)
+    
+    date_list = []
+    date_clock = start_date
+    while date_clock <= end_date:
+        date_list.append(date_clock)
+        date_clock+=td(days=1)
+    cPickle.dump(date_list,open(run_dir+"/date_list.p","wb"))
+
 def new_run(base_dir=None,run_name=None,sat_main=None,sat_pacific=None,geos_main=None,geos_pacific=None):
     """A script to create the space required for a completely new run"""
     
@@ -45,23 +65,7 @@ def new_run(base_dir=None,run_name=None,sat_main=None,sat_pacific=None,geos_main
         os.mkdir(run_dir)
     
     #define dates
-    print "What is the first date to be considered in this run?"
-    start_year = input("YEAR-->")
-    start_month = input("MONTH-->")
-    start_day = input("DAY-->")
-    start_date = dt(start_year,start_month,start_day,0,0,0)
-    print "What is the last date to be considered in this run?"
-    end_year = input("YEAR-->")
-    end_month = input("MONTH-->")
-    end_day = input("DAY-->")
-    end_date = dt(end_year,end_month,end_day,0,0,0)
-    
-    date_list = []
-    date_clock = start_date
-    while date_clock <= end_date:
-        date_list.append(date_clock)
-        date_clock+=td(days=1)
-    cPickle.dump(date_list,open(run_dir+"/date_list.p","wb"))
+    change_dates(run_dir)
     
     #create directories and subdirectories
     
