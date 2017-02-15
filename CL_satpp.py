@@ -659,7 +659,7 @@ def global_options(map_box,xdim,ydim,startdate,enddate):
     return(map_box,xdim,ydim,startdate,enddate)
 
 def change_pickle(current_pickle):
-    os.system('clear')
+    #os.system('clear')
     print "Currently, pickles named %s* are loaded." %current_pickle
     print "To change this, enter a new path and pickle name (excluding suffixes)."
     print "Otherwise, enter Z to keep current option and return totop menu"
@@ -1064,6 +1064,9 @@ def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha
 
     plt.title(title)
     plt.show()
+
+def get_mode(inlist):
+    return(max(set(list(inlist)), key=list(inlist).count))
        
 def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=False):
     """Divides the region into a grid, and computes a statistic for the values falling within it"""
@@ -1098,6 +1101,11 @@ def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=Fals
             scistats.binned_statistic_2d(lon,lat,qvals,np.nansum,bins=[num_xbins,num_ybins],
             range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
             expand_binnumbers=True)
+    elif stat == "mode": #most common value in each cell
+        (binned_stat,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,vals,get_mode,bins=[num_xbins,num_ybins],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
+            expand_binnumbers=True)    
     
     #can also work out lats, lons and index map of bins.
     #As this function is run several times, and these data would be the same
@@ -2207,21 +2215,34 @@ def associate_CSV(CSV_dir,map_box,bda,earliest,latest,CSV_name,CSV_desc,new_unit
     #read NDVI data
     (lat_CSV,lon_CSV,data_CSV,year_CSV,month_CSV) = CSV_months(earliest,latest,CSV_dir,0.1,0.1,map_box,CSV_name)
     
-    CSV_dt = []
-    for i in range(0,len(data_CSV)):
-        CSV_dt.append(dt(year_CSV[i],month_CSV[i],1,0,0,0))
+    if CSV_name != "Land classification":
+        CSV_dt = []
+        for i in range(0,len(data_CSV)):
+            CSV_dt.append(dt(year_CSV[i],month_CSV[i],1,0,0,0))
     
-    CSV_da = d_all(lat_CSV,lon_CSV,time=CSV_dt)
+        CSV_da = d_all(lat_CSV,lon_CSV,time=CSV_dt)
+    else:
+        CSV_da = d_all(lat_CSV,lon_CSV)
+        
     CSV_da.add_data(d(data_CSV,CSV_name,description=CSV_desc)) 
-    
-    (lat_list,lon_list,this_binned,null1,null2,null3) = \
-       binner(CSV_da.lat,CSV_da.lon,
-              CSV_da.data[CSV_name].val,
-              bda.meta["Area"],
-              stat="mean",
-              xdim=bda.meta["Binning dimensions"][0],
-              ydim=bda.meta["Binning dimensions"][1],
-              do_extras=True)
+    if CSV_name=="Land classification":
+        (lat_list,lon_list,this_binned,null1,null2,null3) = \
+           binner(CSV_da.lat,CSV_da.lon,
+                  CSV_da.data[CSV_name].val,
+                  bda.meta["Area"],
+                  stat="mode",
+                  xdim=bda.meta["Binning dimensions"][0],
+                  ydim=bda.meta["Binning dimensions"][1],
+                  do_extras=True)
+    else:
+        (lat_list,lon_list,this_binned,null1,null2,null3) = \
+               binner(CSV_da.lat,CSV_da.lon,
+                      CSV_da.data[CSV_name].val,
+                      bda.meta["Area"],
+                      stat="mean",
+                      xdim=bda.meta["Binning dimensions"][0],
+                      ydim=bda.meta["Binning dimensions"][1],
+                      do_extras=True)
     
     this_binned = grid_match(bda,this_binned,lat_list,lon_list)
     if this_binned==None:

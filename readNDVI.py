@@ -122,6 +122,27 @@ def add_months_dt(sourcedate,months):
     return dt(year,month,day,sourcedate.hour,sourcedate.minute,sourcedate.second)
 
 
+def readLANDCOVER(landcoverfolder,xres,yres):
+    #opens and reads LANDCOVER.xyz, a space-separated, column-arranged file
+    
+    filename = '%s/2011LANDCOVER.xyz' %landcoverfolder
+    print filename
+    f = open(filename,'r')
+    
+    lats=[]
+    lons=[]
+    LC=[]
+    for line in f:
+        line = line.strip()
+        columns = line.split() #use whitespace as delimiter
+        #remove floating point errors in 
+        lons.append(int(float(columns[0])/xres) * xres)
+        lats.append(int(float(columns[1])/yres) * yres)
+        LC.append(int(columns[2]))
+    f.close()
+    return(lats,lons,LC)
+
+
 def readNDVI(NDVIfolder,year,month,xres,yres,compass,datatype="NDVI"):
     
     if datatype=="NDVI":
@@ -134,32 +155,37 @@ def readNDVI(NDVIfolder,year,month,xres,yres,compass,datatype="NDVI"):
     elif datatype == "Fire count":
         #work out the file name to be read
         filename = '%s/MOD14A1_M_FIRE_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
-            
-    print filename
-    
-    f = open(filename,'r')
-    
-    numberofcols = int(360./xres)
-    
-    latcounter = 90. - 0.5*yres
-    lats = []
-    lons = []
-    NDVI = []
-    l = 0
-    for line in f:
-        l+=1
-        line = line.strip() #get rid of the newline character
-        columns = line.split(",") #split by columns, comma separated
-        for i in range(0,numberofcols):
-            try:
-                #"{0:.3f}".format(x) keeps things at 3dp, avoids proiferation of floating point errors.
-                lats.append(float("{0:.3f}".format(latcounter)))
-                lons.append(float("{0:.3f}".format(-180.+(xres*(i+0.5)))))
-                NDVI.append(float(columns[i]))
-            except IndexError:
-                print "Index error at Line number %i, column number %i" %(l,i)
-                sys.exit() 
-        latcounter -= yres
+    elif datatype == "Land classification":
+        (lats,lons,NDVI) = readLANDCOVER(NDVIfolder,xres,yres) #this one is different
+        
+    if datatype != "Land classification":  
+                
+        print filename
+        
+        f = open(filename,'r')
+        
+        numberofcols = int(360./xres)
+        
+        latcounter = 90. - 0.5*yres
+        lats = []
+        lons = []
+        NDVI = []
+        l = 0
+        for line in f:
+            l+=1
+            line = line.strip() #get rid of the newline character
+            columns = line.split(",") #split by columns, comma separated
+            for i in range(0,numberofcols):
+                try:
+                    #"{0:.3f}".format(x) keeps things at 3dp, avoids proiferation of floating point errors.
+                    lats.append(float("{0:.3f}".format(latcounter)))
+                    lons.append(float("{0:.3f}".format(-180.+(xres*(i+0.5)))))
+                    NDVI.append(float(columns[i]))
+                except IndexError:
+                    print "Index error at Line number %i, column number %i" %(l,i)
+                    sys.exit() 
+            latcounter -= yres
+    # End if datatype != "Land classification"
         
     north = compass.n
     south = compass.s
@@ -193,33 +219,38 @@ def CSV_months(startdate,enddate,NDVIfolder,xres,yres,compass,CSV_name):
     NDVI_all = []
     year_all = []
     month_all= []
-      
-    monthcounter = startdate
-    while monthcounter <= enddate:
-        year  = monthcounter.year
-        month = monthcounter.month
-        print "loading %s data for %i-%02d" %(CSV_name,year,month)
-        try:
-            (lats_thismonth,lons_thismonth,NDVI_thismonth) = readNDVI(NDVIfolder,year,month,xres,yres,compass,datatype=CSV_name)
-        except IOError: #if file doesn't exist
-            print "No file for %i-%i" %(year,month)
-            monthcounter = add_months_dt(monthcounter,1)
-            continue
-            
-        lenofmonth = len(NDVI_thismonth)
-        year_thismonth = [year]*lenofmonth
-        month_thismonth = [month]*lenofmonth
-        
-        lats_all.extend(lats_thismonth)
-        lons_all.extend(lons_thismonth)
-        NDVI_all.extend(NDVI_thismonth)
-        year_all.extend(year_thismonth)
-        month_all.extend(month_thismonth)
-        del lats_thismonth,lons_thismonth,NDVI_thismonth,year_thismonth,month_thismonth
-        #print year_all
-        print len(NDVI_all)
-        monthcounter = add_months_dt(monthcounter,1)
     
+    if CSV_name != "Land classification":  
+        monthcounter = startdate
+        while monthcounter <= enddate:
+            year  = monthcounter.year
+            month = monthcounter.month
+            print "loading %s data for %i-%02d" %(CSV_name,year,month)
+            try:
+                (lats_thismonth,lons_thismonth,NDVI_thismonth) = readNDVI(NDVIfolder,year,month,xres,yres,compass,datatype=CSV_name)
+            except IOError: #if file doesn't exist
+                print "No file for %i-%i" %(year,month)
+                monthcounter = add_months_dt(monthcounter,1)
+                continue
+                
+            lenofmonth = len(NDVI_thismonth)
+            year_thismonth = [year]*lenofmonth
+            month_thismonth = [month]*lenofmonth
+            
+            lats_all.extend(lats_thismonth)
+            lons_all.extend(lons_thismonth)
+            NDVI_all.extend(NDVI_thismonth)
+            year_all.extend(year_thismonth)
+            month_all.extend(month_thismonth)
+            del lats_thismonth,lons_thismonth,NDVI_thismonth,year_thismonth,month_thismonth
+            #print year_all
+            print len(NDVI_all)
+            monthcounter = add_months_dt(monthcounter,1)
+    else: #if it IS land class
+        (lats_all,lons_all,NDVI_all) = readNDVI(NDVIfolder,2011,1,xres,yres,compass,datatype=CSV_name) #2011 and 1 are not used
+        year_all = None
+        month_all = None
+        
     return(lats_all,lons_all,NDVI_all,year_all,month_all)
         
 def readNDVI_v2(NDVIfolder,year,month,xres,yres,compass):
@@ -236,6 +267,10 @@ def readNDVI_v2(NDVIfolder,year,month,xres,yres,compass):
     east  = compass.e
     west  = compass.w
     
+    #north = 89.95
+    #south = -89.95
+    #east  = 179.95
+    #west  = -179.95
     
     
     north_j = int((90 - north) / yres)
@@ -272,10 +307,15 @@ def NDVI_months_v2(startdate,enddate,NDVIfolder,xres,yres,compass):
     
 def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate):
 
-    north = compass.n
-    south = compass.s
-    east  = compass.e
-    west  = compass.w
+    north=compass.n
+    south=compass.s
+    east=compass.e
+    west=compass.w
+    
+    #north = 89.95
+    #south = -89.95
+    #east  = 179.95
+    #west  = -179.95
     
     print "Associating with individual observations"
     
@@ -288,14 +328,17 @@ def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate):
     max_j = int((north-south)/yres)
     
     for k in range(0,len(ida.lat)):
-        if k % 1000 == 0:
-            print "%i of %i" %(k,len(ida.lat))
+
         i =int((ida.lon[k]-west)/xres)
         j =int((north-ida.lat[k])/yres)
         m = 12*(ida.time[k].year - startdate.year) + (ida.time[k].month - startdate.month)
-
+        if k % 1000 == 0:
+            print "%i of %i" %(k,len(ida.lat))
+            print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])
+            print "j  =%i, i  =%i" %(j,i)
+            print "NDVI = %g" %float(NDVI_3D[m][j][i])
         try:
-            NDVI.append(NDVI_3D[m][j][i])
+            NDVI.append(float(NDVI_3D[m][j][i]))
         except IndexError:
             print "Out of range, assigning zero"
             print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])

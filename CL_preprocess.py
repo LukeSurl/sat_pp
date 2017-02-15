@@ -53,6 +53,7 @@ def preprocessing(base_dir=None,run_name=None):
             print "[1] Download new 'main' satellite data"
             print "[2] Download new 'pacific' satellite data"
             print "[3] Extract data from main satellite files and generate input for AMF calculator"
+            print "[3a] Write bsub file only"
             print "[3b] Extract data from BRUG satellite files and generate input for AMF calculator"
             print "[4] Run AMF calculator"
             print "[4b] Prepare slant-column only file"
@@ -133,6 +134,19 @@ def preprocessing(base_dir=None,run_name=None):
                       
             write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main)
             continue
+        
+        if option == "3A":
+            date_dos = []
+            for i in range(len(date_list)):
+                date_dos.append([date_list[i],True])
+            print "Enter AMF calculator directory"
+            amf_run_dir = os.path.join(base_dir,"amf581/")
+            print "Press enter to use %s" %amf_run_dir          
+            amf_run_dir_in = raw_input("-->")
+            if amf_run_dir_in !=  "":
+                amf_run_dir = amf_run_dir_in
+                      
+            write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main)
         
         if option == "3B":
             this_box = box(40.,0.,105.,60.)

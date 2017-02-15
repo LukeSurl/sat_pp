@@ -158,19 +158,42 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                        top_level_menu_text)
     
     if top_level_menu_choice == "P": #change pickle
-        (changed,current_pickle) = change_pickle(current_pickle)
-        if changed:
+        found_something = False
+        while found_something == False:
+            (changed,current_pickle) = change_pickle(current_pickle)
+            if changed == False:
+                break
             #reloading is time-consuming so only do if change made
-            try:
+            #delete current
+            if 'ida' in locals():
+                del ida
+            if 'bda' in locals():
+                del bda
+                             
+            if os.path.isfile(current_pickle+"_2.p"): #try with _2.p suffix
+                print "Found individual data: " + current_pickle+"_2.p"
                 ida_p = load_new_pickles_da(current_pickle,"_2.p")
-            except IOError:
+                ida = ida_p #ida_p is kept static while ida gets modified.
+                found_something = True
+            elif os.path.isfile(current_pickle+".p"): #try with no suffix
+                print "Found individual data: " + current_pickle+".p"
                 ida_p = load_new_pickles_da(current_pickle,".p")
-            ida = ida_p #ida_p is kept static while ida gets modified.
-            try:
+                ida = ida_p #ida_p is kept static while ida gets modified.
+                found_something = True
+            else:
+                print "No individual data found!"
+            
+            if os.path.isfile(current_pickle+"_binned.p"): #look for binned
+                print "Found binned data: "+current_pickle+"_binned.p"
                 bda_p = load_new_pickles_da(current_pickle,"_binned.p")
                 bda = bda_p #bda_p is kept static while bda gets modified
-            except IOError:
-                print "No binned data detected. This can be created in this utility"
+                found_something = True       
+            else:
+                print "No binned data detected!"
+            if found_something == False:
+                print "ALERT! No data was found!"
+                current_pickle = "NONE"
+                    
         
     elif top_level_menu_choice == "E": #change emissions
         (changed,current_geosfolder) = change_emfiles(current_geosfolder)
@@ -199,7 +222,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         #NDVI_dir = raw_input("Enter directory containing NDVI data-->")
         
         option=basic_menu("Which type of gridded data to associate?",
-                          [["N","NDVI"],["L","LAI"],["F","Fire count"]],
+                          [["N","NDVI"],["L","LAI"],["F","Fire count"],["LC","Land classification"],
+                           ["P","Population density"]                                                      ],
                           quit_option=True)
         if option=="N":
             CSV_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
@@ -213,6 +237,15 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             CSV_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire"
             CSV_name = "Fire count"
             CSV_desc= "MODIS fire count (fire pixels/1000km2/day)"
+        elif option =="LC":
+            CSV_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/LC"
+            CSV_name = "Land classification"
+            CSV_desc= "Land cover classification"
+        elif option=="P":
+            CSV_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/population"
+            CSV_name = "Population density"
+            CSV_desc= "Population per km2"
+                         
         elif option=="Z":
             continue #quit menu    
         bda = associate_CSV(CSV_dir,map_box,bda,startdate,enddate,CSV_name,CSV_desc)
