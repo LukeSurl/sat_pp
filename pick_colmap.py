@@ -2,6 +2,16 @@
 
 """pick_colmap.py - A command-line interface for the brewer2mpl package"""
 
+
+#usage:
+#Place this script in the working directory.
+# 
+#import pick_colmap
+#colmap = pick_colmap.pick_colmap(returntype="matplotlib")
+#
+#The interface will start and "colmap" will then be a matplotlib colormap object.
+ 
+
 try:
     import brewer2mpl
 except ImportError:
@@ -9,12 +19,13 @@ except ImportError:
     sys.exit()
 
 import os
-import matplotlib.pyplot as plt
-import matplotlib.colorbar as colorbar
-import matplotlib.cm as cm
-import matplotlib.colors as colors
 
 def free_colorbar(colmap,vmin=0.,vmax=1.):
+    import matplotlib.pyplot as plt
+    import matplotlib.colorbar as colorbar
+    import matplotlib.cm as cm
+    import matplotlib.colors as colors
+
     cm1 = colors.LinearSegmentedColormap.from_list("MyCmapName",colmap.mpl_colors)
     cnorm = colors.Normalize(vmin=vmin,vmax=vmax)
     cpick = cm.ScalarMappable(norm=cnorm,cmap=cm1)
@@ -23,7 +34,7 @@ def free_colorbar(colmap,vmin=0.,vmax=1.):
     plt.show()
 
 
-def pick_colmap(preview=False):
+def pick_colmap(preview=False,returntype="normal"):
     os.system('cls' if os.name == 'nt' else 'clear') #clear the screen
     print "==COLOR MAP PICKER - refer to http://colorbrewer2.org for visuals==="
     map_type = ""
@@ -63,8 +74,12 @@ def pick_colmap(preview=False):
     
     if preview:
         free_colorbar(bmap)
-    
-    return(bmap)   
+        
+    #return options. See https://pypi.python.org/pypi/brewer2mpl/1.4 for other things you can do with this object    
+    if returntype=="normal":
+        return(bmap)
+    elif returntype="matplotlib":
+        return(bmap.mpl_colormap)
     
         
         
