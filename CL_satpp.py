@@ -30,6 +30,7 @@ import pickle
 import cPickle
 from WYIBF import *
 from readNDVI import *
+import brewer2mpl
 
 def lat_str(y):
     """Returns string for latitude"""
@@ -576,11 +577,11 @@ def geo_select_menu(type_geo_select,geo_selection):
         if choice == "1":
             valid = False
             while valid == False: #use the in-built validation method for this class
-                type_geo_select = "latlon"
+                type_geo_select = "rectangle"
                 new_north = float(raw_input("Enter lat for N boundary (N +ve, S -ve) -->"))
                 new_south = float(raw_input("Enter lat for S boundary (N +ve, S -ve) -->"))
                 new_east  = float(raw_input("Enter lon for E boundary (E +ve, W -ve) -->"))
-                new_west  = float(raw_input("Enter lon for W boundart (E +ve, W -ve) -->"))
+                new_west  = float(raw_input("Enter lon for W boundary (E +ve, W -ve) -->"))
                 geo_selection = box(new_north,new_south,new_east,new_west)
                 valid = geo_selection.valid()
                 
@@ -789,8 +790,9 @@ def stripallnans(*a):
 
 
 
-def draw_screen_poly( rec_lats, rec_lons, m, c, color_index ):
-    rainbow = plt.get_cmap('rainbow')
+def draw_screen_poly( rec_lats, rec_lons, m, c, color_index,colmap ):
+    #rainbow = plt.get_cmap('rainbow')
+    rainbow = colmap.mpl_colormap
     x, y = m( rec_lons, rec_lats )
     xy = zip(x,y)
     this_col=color_index(c,clip=True)
@@ -825,16 +827,18 @@ def prepare_map(map_box,boundary=0.1):
     m.drawmeridians(np.arange(-180.,181.,gl_spacing),labels=[False,False,False,True]) 
     return m
     
-def free_colorbar(vmin,vmax,label="no label selected",coltype="bwr"):
-    if coltype == "bwr":
-        cols_for_bar = [[0.,0.,1.],[1.,1.,1.],[1.,0.,0.]]
-    elif coltype == "lg-dg":
-        cols_for_bar = [[0.,0.2,0.],[0.8,0.2,0.8]]
-    else:
-        rainbow = plt.get_cmap(coltype)
-        cols_for_bar = []
-        for i in range(0,256):
-            cols_for_bar.append(list(rainbow(i)[0:3]))
+def free_colorbar(vmin,vmax,label="no label selected",colmap=None):
+    #if coltype == "bwr":
+    #    cols_for_bar = [[0.,0.,1.],[1.,1.,1.],[1.,0.,0.]]
+    #elif coltype == "lg-dg":
+    #    cols_for_bar = [[0.,0.2,0.],[0.8,0.2,0.8]]
+    #else:
+    #    rainbow = plt.get_cmap(coltype)
+    #    cols_for_bar = []
+    #    for i in range(0,256):
+    #        cols_for_bar.append(list(rainbow(i)[0:3]))
+            
+    cols_for_bar = colmap.mpl_colors        
     #can add in more cols_for_bar options here.
     cm1 = colors.LinearSegmentedColormap.from_list("MyCmapName",cols_for_bar)
     cnorm = colors.Normalize(vmin=vmin,vmax=vmax)
@@ -842,7 +846,9 @@ def free_colorbar(vmin,vmax,label="no label selected",coltype="bwr"):
     cpick.set_array([])
     plt.colorbar(cpick,label=label)
 
-def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec/cm2",save=False,save_filename="nofilenamespecified"):
+def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec/cm2",
+                        save=False,save_filename="nofilenamespecified",
+                        colmap=None):
     #Define basemap
     m = prepare_map(map_box)
     color_index = colors.Normalize(vmin,vmax)
@@ -855,21 +861,23 @@ def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=
         this_c = var[i]
         if math.isnan(this_c) or math.isnan(this_w) or math.isnan(this_e) or math.isnan(this_s) or math.isnan(this_n):
             continue #don't plot if there's no data
-        draw_screen_poly( [this_s,this_n,this_n,this_s],[this_w,this_w,this_e,this_e], m, this_c, color_index )        
+        draw_screen_poly( [this_s,this_n,this_n,this_s],[this_w,this_w,this_e,this_e], m, this_c, color_index, colmap )        
     plt.title(title)
-    free_colorbar(vmin,vmax,label=lab,coltype="rainbow")
+    free_colorbar(vmin,vmax,label=lab,colmap=colmap)
     fig = plt.gcf()
     if save:    
         fig.savefig(save_filename, dpi=600)
     plt.show()
 
-def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec/cm2",save=False,save_filename="nofilenamespecified"):
+def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec/cm2",
+                     save=False,save_filename="nofilenamespecified",
+                     colmap=None):
     """Draws dots on a map at lat/lon positions, color-coded based on values"""
     m = prepare_map(map_box)
     x, y = m(lon,lat)
-    m.scatter(x,y,18,marker='.',edgecolors='none',c=var, vmin=vmin, vmax=vmax)
+    m.scatter(x,y,18,marker='.',edgecolors='none',c=var, vmin=vmin, vmax=vmax, cmap=colmap.mpl_colormap)
     plt.title(title)
-    free_colorbar(vmin,vmax,label=lab)
+    free_colorbar(vmin,vmax,label=lab,colmap=colmap)
     fig = plt.gcf()
     if save:    
         fig.savefig(save_filename, dpi=600)
@@ -1790,6 +1798,23 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg",columns=False):
         i += 1
         
     del i
+    
+    if columns:
+        #print "For 3D data, compute the column (C) or take a level (enter number)?"
+        while True:
+            c_or_lev = raw_input("For 3D data, compute the column (C) or take a level (enter number)? -->").upper()
+            if c_or_lev == "C":
+                break
+            else:
+                try:
+                    _ = int(c_or_lev)
+                    break
+                except ValueError:
+                    print "not a valid option!"
+                    pass
+                                  
+    else:
+        c_or_lev = "NA"
         
     
     #Right, now let's get onto the serious stuff
@@ -1824,20 +1849,22 @@ def load_geosfile(emfiles_folder,file_tag="trac_avg",columns=False):
             geos_dataset.set_lat_lon(lat,lon)
             
             if len(this_data[0]) != 1: #if there is vertical information
-                if columns:
+                if columns and c_or_lev == "C":
                     print "Calculating column of this variable"                   
                     this_data_vv = np.array(this_data) * 1e-9 #convert to v/v
                     box_height = np.array(f.variables['BXHGHT-$_BXHEIGHT']) * 100 #box height in cm
                     air_den =    np.array(f.variables['TIME-SER_AIRDEN'])  # air density molec.cm-3
                     air_amount = np.multiply(box_height,air_den) #air per grid box molec.cm-2
-                    this_data_col = np.sum(np.multiply(this_data_vv,air_amount),axis=1) #column molec.cm-3
+                    this_data_col = np.sum(np.multiply(this_data_vv,air_amount),axis=1) #column molec.cm-3                    
                 else:    
-                    print "For this 3D variable, only lowest layer information will be read"
+                    print "For this 3D variable, only one layer information will be read"
             else:
                 print "Variable is 2D"
             for t in range(0,num_times):
-                if columns:
+                if columns and c_or_lev == "C":
                     geos_dataset.add_data(this_data_col[t],time[t],new_time_bounds=dt_time_bounds[t])
+                elif columns:
+                    geos_dataset.add_data(this_data[t][int(c_or_lev)],time[t],new_time_bounds=dt_time_bounds[t])
                 else:                
                     geos_dataset.add_data(this_data[t][0],time[t],new_time_bounds=dt_time_bounds[t])
     
@@ -2030,7 +2057,7 @@ def associate_ind_geos(ida,geos_dict):
         this_val = []
         for p in range(0,ida_len):
             if None in match_indexes[p]: #if there's no matching point
-                this_val.append(None)
+                this_val.append(np.nan)
             else:
                 this_val.append(geos_dict[geos_key].data[ match_indexes[p][0] ][ match_indexes[p][1] ][ match_indexes[p][2] ])
                 
@@ -2304,4 +2331,35 @@ def write_as_csv(xda):
         wf.write(str(the_var[i]))
         wf.write("\n")
     wf.close()
-    return           
+    return
+    
+def binned_to_indv(ida,bda):
+    """For each individual data point, get a set of data from the the closest binned point"""
+    
+    bda_lats = np.array(bda.lat)
+    bda_lons = np.array(bda.lon)
+    
+    print "Identifying datasets"
+    assoc_dict = {}
+    for key in bda.data.keys():
+        print key
+        assoc_dict["fb_"+key] = []
+      
+    print "Computing indexes"
+    li = len(ida.lat)
+    for a in range(li):
+        #print "%i of %i" %(a,li)
+        #get index of smallest distance from lat/lom
+        b = np.argmin(np.add(np.square(bda_lats - ida.lat[a]),np.square(bda_lons - ida.lon[a])))
+        
+        for key in bda.data.keys():
+             assoc_dict["fb_"+key].append(bda.data[key].val[b])
+             
+    print "Adding to store"
+    for key in bda.data.keys():
+        ida.add_data(d(assoc_dict["fb_"+key],"fb_"+key,description=bda.data[key].description+" (from binned)"))
+        
+    return(ida)
+        
+        
+        

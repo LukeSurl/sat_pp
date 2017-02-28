@@ -7,6 +7,8 @@ import os
 from datetime import datetime as dt
 import copy
 import pickle
+import brewer2mpl
+import pick_colmap
 
 #"shorthand" variables
 yesno = [["Y","Yes"],["N","No"]] 
@@ -70,6 +72,9 @@ else:
                     ],
                     quit_option=False)
 
+
+#default colormap
+colmap = brewer2mpl.get_map("RdYlBu","Diverging", 6, reverse=True)
 
 ##defunct - now part of CL_preprocess
 #filtered_startdate = dt(1970,1,1)
@@ -145,13 +150,15 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["C","Assign country/state to data"],
             ["CF","Assign country/state to data FAST"],                        
             ["B","Bin additional datasets"],
+            ["BI","Add binned data to individual data"],
             ["N","Associate CSV-form data"],
             ["Ni","Associate NDVI data (individual)"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
             ["A","Load GEOS Chem trac_avg data"],
             ["T","Load GOES Chem ND51 data"],
-            ["K","Plot GOES Chem data"],   
+            ["K","Plot GOES Chem data"],
+            ["COL","Change colour bar choice"],   
             ["X","Inspect and change global options"]
         ]
     top_level_menu_choice = basic_menu(top_level_menu_title,
@@ -217,6 +224,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             
     elif top_level_menu_choice == "B": #Bin additional datasets
         bda = bin_extra(ida,bda)
+        
+    elif top_level_menu_choice == "BI": #Bin additional datasets
+        ida = binned_to_indv(ida,bda)  
     
     elif top_level_menu_choice == "N": #associate NDVI
         #NDVI_dir = raw_input("Enter directory containing NDVI data-->")
@@ -285,21 +295,24 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     elif top_level_menu_choice == "G": #geographic selection option
         before_geo = (type_geo_select,geo_selection)
         (type_geo_select,geo_selection) = geo_select_menu(type_geo_select,geo_selection)
-        if before_geo != (type_geo_select,geo_selection): #if geo selection has changed
-            print "Updating geographic selection..."
-            if type_geo_select in ["country","state"]:
+        
+        print "Updating geographic selection..."
+        if type_geo_select in ["country","state"]:
+            try: #will fail if ida doesn't have country/state data
+                ida = da_select_by_match(type_geo_select,geo_selection,ida)
+            except:
+                print "Cannot process individual data, country/state not assigned"
+            if 'bda' in locals(): #only if bda exits
                 try: #will fail if ida doesn't have country/state data
-                    ida = da_select_by_match(type_geo_select,geo_selection,ida)
+                    bda = da_select_by_match(type_geo_select,geo_selection,bda)
                 except:
-                    print "Cannot process individual data, country/state not assigned"
-                bda = da_select_by_match(type_geo_select,geo_selection,bda)
-            #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+                    print "Cannot process individual data, country/state not assigned"    
 
-            elif type_geo_select in ["rectangle","circle"]:
-                da_select_by_shape(geo_selection,ida)
+        elif type_geo_select in ["rectangle","circle"]:
+            da_select_by_shape(geo_selection,ida)
+            if 'bda' in locals(): #only if bda exits
                 da_select_by_shape(geo_selection,bda)                   
-
-            #    dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
+ 
     
     elif top_level_menu_choice == "F": #values filtering
         ida = criteria_filtering(ida)
@@ -381,6 +394,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         except NameError: #bda doesn't exist
             pass
         current_pickle = save_path+prefix
+    
+    elif top_level_menu_choice == "COL": #change color bar
+        colmap = pick_colmap.pick_colmap(preview=False)   
         
     elif top_level_menu_choice == "1": #Binned data
         #ubd = use binned data
@@ -430,7 +446,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     plot_grid_from_list(bda.lat,bda.lon,bda.data[data_key].val,
                                         bda.meta["Binning dimensions"][0],bda.meta["Binning dimensions"][1],
                                         map_box,title=title,vmin=vmin,vmax=vmax,lab=unit,
-                                        save=do_save,save_filename=save_filename)
+                                        save=do_save,save_filename=save_filename,colmap=colmap)
                     break
             
             #bda-ification done to this point
@@ -479,7 +495,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
                             plot_dots_on_map(ida.lat,ida.lon,ida.data[data_key].val,map_box,vmin=vmin,vmax=vmax,title=title,lab=unit,save=True,save_filename=save_filename)
                         elif map_preplot_menu_choice.upper() == "P": #plotting the figure
-                            plot_dots_on_map(ida.lat,ida.lon,ida.data[data_key].val,map_box,vmin=vmin,vmax=vmax,title=title,lab=unit,save=False)
+                            plot_dots_on_map(ida.lat,ida.lon,ida.data[data_key].val,map_box,vmin=vmin,vmax=vmax,title=title,lab=unit,save=False,colmap=colmap)
                         else: #no plot
                             pass     
                                        

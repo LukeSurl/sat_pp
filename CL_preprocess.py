@@ -676,7 +676,7 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
                 else:
                     try:
                         sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j]+OMI_in.meta["Median model VC in ref sector"]) #barkley correction, if present
-                        sat_DVC_list.append(OMI_in.data['DSC'].val[j]/a_AMF[j]+OMI_in.meta["Median model VC in ref sector"])
+                        sat_DVC_list.append(OMI_in.data['DSC'].val[j]/a_AMF[j])
                     except KeyError:
                         print "non-barkley"
                         sat_VC_list.append(OMI_in.data['SC'].val[j]/a_AMF[j])
@@ -757,7 +757,7 @@ def prep_satellite_slants(date_list,p1,save_dir):
         #    #AMF or pacific correction failed here
         #    filter_i.append(False)
         #    continue
-        if OMI_all.data["DSC"].val[i] > OMI_all.data["SC"].val[i]*3:
+        if abs(OMI_all.data["DSC"].val[i]) > abs(OMI_all.data["SC"].val[i]*3):
             filter_i.append(False)
             continue
         #if we get this far, this data point has passed
@@ -771,7 +771,7 @@ def prep_satellite_slants(date_list,p1,save_dir):
                 "Xtrack quaility flag == 0\n"+\
                 "Solar zenity angle <= 70.\n"+\
                 "Cloud fraction <= 0.4\n"+\
-                "DSC < SC*3"
+                "DSC < abs(SC*3)"
     OMI_all.meta["Filtering stats"] = \
         {"Total datapoints":num_pre_filter,
          "Retained datapoints":len(OMI_all.lat),
@@ -1000,6 +1000,7 @@ def filtering(p3_dir,p4_dir):
     elif filter_option == "1":
         print "Default filtering chosen"
         #Main data quality flag
+        print "Removing rows 0 and 59 (edge of swath)"
         print "Removing points where Main Data Quality Flag =! 0"
         print "Removing points where Xtrack Quality Flag != 0"
         print "Removing points where Solar Zenith Angle > 70 deg"
@@ -1009,7 +1010,7 @@ def filtering(p3_dir,p4_dir):
         filter_i = []
         num_pre_filter = len(ida.lat)
         for i in range(0,num_pre_filter):
-            if ida.data["main data quality flag"].val[i] != 0 :
+            if ida.data["row"].val[i] in [0,59] :
                 filter_i.append(False)
                 continue
             if ida.data["Xtrack quality flag"   ].val[i] != 0 :
@@ -1025,7 +1026,10 @@ def filtering(p3_dir,p4_dir):
                 #AMF or pacific correction failed here
                 filter_i.append(False)
                 continue
-            if ida.data["sat_DVC"].val[i] > ida.data["sat_VC"].val[i]*3:
+            if abs(ida.data["sat_DVC"].val[i]) > abs(ida.data["sat_VC"].val[i]*3):
+                filter_i.append(False)
+                continue
+            if abs(ida.data["sat_VC"].val[i]) > 1.5e17:
                 filter_i.append(False)
                 continue
             #if we get this far, this data point has passed
@@ -1035,11 +1039,13 @@ def filtering(p3_dir,p4_dir):
 
         #add meta information about filtering
         ida.meta["Filtering criteria"] = \
+                    "row != 0 or 59\n"+\
                     "main data quaility flag == 0\n"+\
                     "Xtrack quaility flag == 0\n"+\
                     "Solar zenity angle <= 70.\n"+\
                     "Cloud fraction <= 0.4\n"+\
-                    "DVC < VC*3"
+                    "DVC < abs(VC*3)\n"+\
+                    "VC < 15e16"
         ida.meta["Filtering stats"] = \
             {"Total datapoints":num_pre_filter,
              "Retained datapoints":len(ida.lat),

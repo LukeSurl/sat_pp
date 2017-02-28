@@ -27,8 +27,8 @@ do_obs = True #work out median obs in reference sector
 do_geos = True #work out median model column in reference sector
 
 #dates
-first_date = date(2014,1,1)
-last_date = date(2014,12,31)
+first_date = date(2013,1,1)
+last_date = date(2015,12,31)
 
 #get a list of dates
 list_of_dates = []
@@ -38,7 +38,7 @@ while dateclock <= last_date:
     dateclock += td(days=1)
 
 #Load/save loaction
-pickle_location = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/pikg.p"
+pickle_location = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2013-2015.p"
 
 #data locations
 pacific_data_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/OMHCHO_pacific_bark/"
@@ -87,7 +87,7 @@ for dateclock in list_of_dates:
             try:
                 f_HDF = h5py.File(join(pacific_data_dir, f))
             except IOError: #dud files
-                print "Cannot open %s" %f
+                #print "Cannot open %s" %f
                 continue
             
             #shorthands
@@ -114,7 +114,7 @@ for dateclock in list_of_dates:
             today_SC = np.append(today_SC,this_SC)
             
         today_correction.med_obs = np.median(today_SC)
-        print "Median observed slant column for %s: %g" %(dateclock.strftime("%Y-%m-%d"),today_correction.med_obs)
+        print "Median observed slant    column for %s: %g" %(dateclock.strftime("%Y-%m-%d"),today_correction.med_obs)
     
     #geos median
     if do_geos:
@@ -132,7 +132,7 @@ for dateclock in list_of_dates:
             this_data_col = np.sum(np.multiply(this_hcho,air_amount),axis=1) #column molec.cm-2
             
             today_correction.med_geos = np.median(this_data_col)
-            print "Median modelled slant column for %s: %g" %(dateclock.strftime("%Y-%m-%d"),today_correction.med_geos)
+            print "Median modelled vertical column for %s: %g" %(dateclock.strftime("%Y-%m-%d"),today_correction.med_geos)
                               
     all_corrections.append(today_correction)     
 
