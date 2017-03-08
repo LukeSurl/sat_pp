@@ -153,16 +153,20 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["BI","Add binned data to individual data"],
             ["N","Associate CSV-form data"],
             ["Ni","Associate NDVI data (individual)"],
+            ["Fi","Associate Fire data (individual)"],
+            ["FM","Associate Fire mask"],
             ["R","Reload pickle"],
             ["E","Change GEOS Chem directory"],
             ["A","Load GEOS Chem trac_avg data"],
             ["T","Load GOES Chem ND51 data"],
             ["K","Plot GOES Chem data"],
             ["COL","Change colour bar choice"],   
-            ["X","Inspect and change global options"]
+            ["X","Inspect and change global options"],
+            ["Z","Quit"]
         ]
     top_level_menu_choice = basic_menu(top_level_menu_title,
-                                       top_level_menu_text)
+                                       top_level_menu_text,
+                                       quit_option=False)
     
     if top_level_menu_choice == "P": #change pickle
         found_something = False
@@ -264,22 +268,30 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
         NDVI_3D = NDVI_months_v2(startdate,enddate,NDVI_dir,0.1,0.1,map_box)
         associate_NDVI_v2(ida,NDVI_3D,0.1,0.1,map_box,startdate)
+        
+    elif top_level_menu_choice == "FI": #associate fires ida
+        FIRE_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire"
+        FIRE_3D = NDVI_months_v2(startdate,enddate,FIRE_dir,0.1,0.1,map_box,datatype="Fire count")
+        associate_NDVI_v2(ida,FIRE_3D,0.1,0.1,map_box,startdate,datatype="Fire count")
+    
+    elif top_level_menu_choice == "FM": #associate fire mask 
+        FIRE_file = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire_daily/fire_archive_M6_7826.csv"
+        daily_fire_filter(ida,FIRE_file,startdate,enddate,map_box,xdim,ydim)
                 
     elif top_level_menu_choice == "K": #plot geos chem data
         plot_geos_chem(geos_dict)
     
     elif top_level_menu_choice == "X": #change options
+        if 'winter_flag' not in locals():
+            winter_flag = False
         datesbefore = (startdate,enddate)
         (map_box,
          xdim,ydim,
-         startdate,enddate) = global_options(
+         startdate,enddate,winter_flag) = global_options(
                              map_box,
                              xdim,ydim,
-                             startdate,enddate)
-        #if time selection has changed, reselect data.
-        if datesbefore != (startdate,enddate): 
-            print "Start and/or end time has changed. Selecting data..."                
-            ida = time_select(startdate,enddate,ida)
+                             startdate,enddate,winter_flag)
+        ida = time_select(startdate,enddate,ida,winter_flag=winter_flag)
             
     elif top_level_menu_choice == "R": #reload pickle
         #re-unpack data sets to clear any previous geographic selection
@@ -593,6 +605,14 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 if save_location != "":
                     cPickle.dump(ov_data,open(save_location,"wb"))
         
-               
+    elif top_level_menu_choice == "Z": #Quit
+        reallyquit = ""
+        while reallyquit not in ["Y","N"]:
+            reallyquit = raw_input("Are you sure you want to quit? Y/N").upper()
+            if reallyquit == "Y":
+                sys.exit()
+            else:
+                top_level_menu_choice = ""
+                       
         
        

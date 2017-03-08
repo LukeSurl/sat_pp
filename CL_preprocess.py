@@ -628,7 +628,8 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
         except IOError:
             #file doesn't exist
             if print_missing_dates:
-                print "%s does not exist" %AMF_path            
+                print "%s does not exist" %AMF_path
+            del OMI_in            
             continue #go to next date
         
         #loop through lines in AMFs_in
@@ -646,6 +647,12 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
         len_OMI=len(OMI_in.data['ULN'].val)
         len_a  =len(a_ULN)
         print "len(OMI) = %i, len(amf) = %i" %(len_OMI,len_a)
+        if len_OMI != len_a:
+            corrupt_day = True
+            print "Different length datasets. Suspicious. Omitting"
+            del OMI_in
+            continue        
+        
         AMF_list = []
         sat_VC_list = []
         sat_DVC_list = []
@@ -658,6 +665,7 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
             if OMI_in.data['ULN'].val[j] != a_ULN[j]:
                 corrupt_day = True
                 print "Data for this day is corrupted. Omitting"
+                del OMI_in
                 break
             #simple match
             if a_GEOS[j] <= 0.:
@@ -697,8 +705,9 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
             OMI_in.add_data(d(geos_VC_list,"geos_VC","Modelled vertical HCHO column"))
             OMI_in.data["geos_VC"].unit = 'molec/cm2'            
             daily_new_OMIs.append(copy.deepcopy(OMI_in))
-                    
-        del OMI_in
+        
+        if 'OMI_in' in locals() or 'OMI_in' in globals():            
+            del OMI_in
                 
         
             

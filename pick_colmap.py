@@ -78,7 +78,7 @@ def pick_colmap(preview=False,returntype="normal"):
     #return options. See https://pypi.python.org/pypi/brewer2mpl/1.4 for other things you can do with this object    
     if returntype=="normal":
         return(bmap)
-    elif returntype="matplotlib":
+    elif returntype=="matplotlib":
         return(bmap.mpl_colormap)
     
         

@@ -270,9 +270,9 @@ class geos_data():
         
     def set_lat_lon(self,lat,lon): #to set latitudes and longitudes
         self.lat = lat
-        self.lat_spacing = abs(lat[1]-lat[0])
+        self.lat_spacing = abs(lat[2]-lat[1])
         self.lon = lon
-        self.lon_spacing = abs(lon[1]-lon[0])
+        self.lon_spacing = abs(lon[2]-lon[1])
     
 
 
@@ -499,7 +499,7 @@ def calc_statistic(dataset,stat_choice):
     elif stat_choice == "3": #count
         return np.count_nonzero(~np.isnan(dataset))
     elif stat_choice == "4": #percentiles
-        return np.percentile(dataset,frange(0.,101.))
+        return np.percentile(dataset,range(0,101))
         
     
 def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2"):
@@ -617,8 +617,9 @@ def geo_select_menu(type_geo_select,geo_selection):
     return(type_geo_select,geo_selection)
                                     
                                  
-def global_options(map_box,xdim,ydim,startdate,enddate):
+def global_options(map_box,xdim,ydim,startdate,enddate,winter_flag):
     leave = False
+    winter_flag = False
     while leave == False :
         os.system('clear')
         print "GLOBAL OPTIONS"
@@ -634,6 +635,7 @@ def global_options(map_box,xdim,ydim,startdate,enddate):
         print "[B] Change boundary options"
         print "[S] Change spacing options"  
         print "[T] Change time frame"
+        print "[W] Toggle special winter months in this time-frame option (currently %r)"%winter_flag
         print "[Z] Return to top menu"
         choice = raw_input("-->")
         if choice == "B" or choice == "b":
@@ -647,17 +649,19 @@ def global_options(map_box,xdim,ydim,startdate,enddate):
             ydim = change_var(ydim,"Latitudinal  spacing of gridded data")
         elif choice == "T" or choice == "t":
             new_s_year = change_var(startdate.year,"Start time year")
-            new_s_month= change_var(startdate.month,"Start time month")
+            new_s_month= change_var(startdate.month,"Start time month")            
             new_s_day  = change_var(startdate.day,"Start time day")
             startdate  = dt(new_s_year,new_s_month,new_s_day,0,0,0)
             new_e_year = change_var(  enddate.year,"End time year")
             new_e_month= change_var(  enddate.month,"End time month")
             new_e_day  = change_var(  enddate.day,"End time day")
             enddate    = dt(new_e_year,new_e_month,new_e_day,0,0,0)
+        elif choice == "W":
+            winter_flag = not winter_flag
         elif choice == "Z" or choice == "z":
             leave = True
         
-    return(map_box,xdim,ydim,startdate,enddate)
+    return(map_box,xdim,ydim,startdate,enddate,winter_flag)
 
 def change_pickle(current_pickle):
     #os.system('clear')
@@ -761,6 +765,7 @@ def stripallnans(*a):
           n += 1
        else :
           new_checklen = len(a_entry)
+          print new_checklen
           n += 1
           if checklen != new_checklen :
              raise ValueError("In stripall nans, len of entry #%i not equal to len of entry #%i" %(n,n-1))
@@ -768,24 +773,31 @@ def stripallnans(*a):
              checklen = new_checklen   
     #Now that's done, loop through indexes
     truefalse = []
+    
     for i in range(0,checklen) :
         flag = 0
         for a_entry in a:
             if type(a_entry[i]) == str:
                 pass
             elif type(a_entry[i]) == float :               
-                if a_entry[i] == float("nan"):
+                if a_entry[i] == float("nan") or np.isnan(a_entry[i]):
                     flag += 1
             elif type(a_entry[i]) == np.float64 :
                 if np.isnan(a_entry[i]):
-                    flag += 1                    
+                    flag += 1
+            elif a_entry[i] == np.nan:
+                flag += 1                    
         if flag == 0 :
             truefalse.append(True)
         else:
             truefalse.append(False)            
     b = []
+    bb = 0
     for a_entry in a:
-        b.append([a_entry[i] for i in range(0,checklen) if truefalse[i] ])     
+        b.append([a_entry[i] for i in range(0,checklen) if truefalse[i] ])
+        print len(b)
+        print len(b[bb])
+        bb+=1     
     return(tuple(b))
 
 
@@ -978,11 +990,18 @@ def geo_select_circle_i(geo_selection,ida):
     ida.filter_all(selector)    
     return(ida)
     
-def time_select(startdate,enddate,ida):
+def time_select(startdate,enddate,ida,winter_flag=False):
     """Reduces ida down to only points within two dates"""
     selector = []
-    for t in ida.time:
-        selector.append(startdate <= t <= enddate)
+    if winter_flag:
+        for t in ida.time:
+            if t.month not in [1,2,3,12]:
+                selector.append(False) #automatic filter out if not JFM or D
+            else:
+                selector.append(startdate <= t <= enddate)
+    else:
+        for t in ida.time:
+            selector.append(startdate <= t <= enddate)
     ida.filter_all(selector)
     
     return(ida)
@@ -1075,6 +1094,9 @@ def time_scatter(time,y,yerr=[],title="UNNAMED PLOT",y_label="",x_label="",alpha
 
 def get_mode(inlist):
     return(max(set(list(inlist)), key=list(inlist).count))
+
+def get_meanerr(inlist):
+    return(np.sqrt(np.divide(1.,np.sum(np.divide(1.,inlist)))))
        
 def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=False):
     """Divides the region into a grid, and computes a statistic for the values falling within it"""
@@ -1113,7 +1135,12 @@ def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=Fals
         (binned_stat,xedges,yedges,binnumber) = \
             scistats.binned_statistic_2d(lon,lat,vals,get_mode,bins=[num_xbins,num_ybins],
             range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
-            expand_binnumbers=True)    
+            expand_binnumbers=True)
+    elif stat == "combined measurement error": #error in mean
+        (binned_stat,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,vals,get_meanerr,bins=[num_xbins,num_ybins],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
+            expand_binnumbers=True)            
     
     #can also work out lats, lons and index map of bins.
     #As this function is run several times, and these data would be the same
@@ -1480,6 +1507,8 @@ def two_var_comparison(ida):
                                     break
                                 except NameError:
                                     print "Not valid input. Put 'single quotes' around text input"
+                                except SyntaxError:
+                                    print "Not valid input. Put 'single quotes' around text input"
                         elif opt == "":
                             goplot = True
                         
@@ -1503,7 +1532,11 @@ def two_var_comparison(ida):
                     pearsonr = scistats.pearsonr(nonan_x_var,nonan_y_var)
                     print "Pearson's correlation coefficient:\n %f, 2-tailed p-value: %f" %(pearsonr[0],pearsonr[1])
                     polyfit = np.polyfit(nonan_x_var, nonan_y_var, 1)
-                    _ = raw_input("Press enter to continue-->")
+                    inv_opt = raw_input("Enter to continue or I to use these as inputs to an inversion -->").upper()
+                    if inv_opt == "I":
+                        ida = second_stage(slope,intercept,ida)
+                        _ = raw_input("Inversion done. Press enter to continue -->")
+    
                 elif type_of_comparison == "3":
                     goplot = False
                     axes_lims = [np.nanmin(nonan_x_var),np.nanmax(nonan_x_var),
@@ -1987,7 +2020,7 @@ def stats_from_da(da):
             print "Statistic: %s" %stat_choice_text
             if s2_menu_choice == "4":
                 for i in range(0,101):
-                    print "%i percentile: %f" %(i,stat[i])
+                    print "%i percentile: %g" %(i,stat[i])
             else:
                 print "Result: %g" %stat
             
@@ -2091,7 +2124,8 @@ def bin_extra(ida,bda):
             be2_menu_title = "Which statistical operator do you want to compute for each bin?"
             be2_menu_text=[["1","mean"],
                            ["2","standard deviation"],
-                           ["3","count"]]
+                           ["3","count"],
+                           ["4","combined measurement error"]]
             be2_menu_choice= basic_menu(be2_menu_title,
                                        be2_menu_text,
                                        quit_option=True)
@@ -2361,5 +2395,119 @@ def binned_to_indv(ida,bda):
         
     return(ida)
         
+def second_stage(gradient,intercept,ida):
+    
+    HCHO_obs = ida.data['sat_VC'].val
+    HCHO_errs = ida.data['sat_DVC'].val
+    
+    isop_inverted = np.divide(np.subtract(HCHO_obs,intercept),gradient)
+    
+    isop_inverted_errs = np.multiply(isop_inverted,
+                           np.divide(HCHO_errs,np.absolute(HCHO_obs)))
+                           
+    ida.add_data(d(isop_inverted,"isop_inv",description="Isoprene emissions derived from inversion"))
+    ida.data["isop_inv"].units="C.cm-2.s-1"
+    
+    ida.add_data(d(isop_inverted,"isop_inv_errs",description="Error in isoprene emissions derived from inversion"))
+    ida.data["isop_inv_errs"].units="C.cm-2.s-1"
+   
+    return(ida)        
+    
+def daily_fire_filter(ida,fire_file,start_date,end_date,map_box,xdim,ydim):
+    
+    do_a_save = raw_input("If you want to automatically save the output from this, enter the full filepath here. Otherwise, enter for normal operations-->")
+    
+    #filter_range = float(raw_input("Minimum acceptable distance from fire in degrees?-->"))
+    #filter_t_range = float(raw_input("Minimum acceptable time from fire in days?-->"))
+    filter_t_range = 1
         
+    fire_lats = []
+    fire_lons = []
+    fire_dates = []
+    
+    confidence_threshold = 0.
+    print "Considering all detections with a confidence of %g or greater"%confidence_threshold
+    
+    #Read in fire file
+    f = open(fire_file,"rb")
+    data =csv.reader(f, delimiter=',')
+    
+    l = 0
+    for line in data: 
+        if l == 0: #skip first line (headers)
+            l+=1
+                        
+        elif float(line[9]) < confidence_threshold:
+            l+=1
+            
+        else:
+            fire_lats.append(float(line[0])) #lat
+            fire_lons.append(float(line[1])) #lon
+            fire_dates.append(dt.strptime(line[5],"%Y-%m-%d")) #dates
+            l+=1
+        if l%10000 == 0:
+            print "line %i"%l
+            
+    f.close()
+    
+    num_fires = len(fire_lats)
+    
+    print "%i fires in file above confidence limit" %num_fires
+    
+    #fire_lats = np.array(fire_lats)
+    #fire_lons = np.array(fire_lons)
+    #fire_dates = np.array(fire_dates)
+    
+    #now get a grid for every date from the beginning to end of the date range (plus buffer)
+    
+    list_of_dates = []
+    
+    list_of_grids = []
         
+    date_clock = start_date
+    
+    print "Binning"
+    while date_clock <= end_date:
+        list_of_dates.append(date_clock)
+        print date_clock
+        
+        accepted_dates = [date_clock + td(days=x) for x in range(-filter_t_range,filter_t_range+1)]
+        fire_indexes = [i for i in range(num_fires) if fire_dates[i] in accepted_dates]
+        
+        these_lats = [fire_lats[i] - ydim for i in fire_indexes] + [fire_lats[i] - ydim for i in fire_indexes] + [fire_lats[i] - ydim for i in fire_indexes] + \
+                     [fire_lats[i]        for i in fire_indexes] + [fire_lats[i]        for i in fire_indexes] + [fire_lats[i]        for i in fire_indexes] + \
+                     [fire_lats[i] + ydim for i in fire_indexes] + [fire_lats[i] + ydim for i in fire_indexes] + [fire_lats[i] + ydim for i in fire_indexes]     
+        these_lons = [fire_lons[i] - xdim for i in fire_indexes] + [fire_lons[i]        for i in fire_indexes] + [fire_lons[i] + xdim for i in fire_indexes] + \
+                     [fire_lons[i] - xdim for i in fire_indexes] + [fire_lons[i]        for i in fire_indexes] + [fire_lons[i] + xdim for i in fire_indexes] + \
+                     [fire_lons[i] - xdim for i in fire_indexes] + [fire_lons[i]        for i in fire_indexes] + [fire_lons[i] + xdim for i in fire_indexes]
+        dummy      = [1.           for i in fire_indexes] * 9
+        
+        list_of_grids.append(binner(these_lats,these_lons,dummy,map_box,stat="count",xdim=xdim,ydim=ydim,do_extras=False))
+        
+        if date_clock == start_date:
+            (bin_lats,bin_lons,dummy2,xedges,yedges,index_map) = (binner(these_lats,these_lons,dummy,map_box,stat="count",xdim=xdim,ydim=ydim,do_extras=True))
+               
+        date_clock += td(days=1)
+    
+    
+    print "Now matching up observations"
+    li = len(ida.lat)
+    fire_count = []
+    for a in range(li):
+        if a%100 == 0:
+            print "data point %i of %i"%(a,li)
+            
+        #print "%i of %i" %(a,li)
+        #get index of smallest distance from lat/lom
+        b  = np.argmin(np.add(np.square(bin_lats - (ida.lat[a]       )),np.square(bin_lons - (ida.lon[a]       ))))
+        
+        t = (ida.time[a]-start_date).days
+        
+        fire_count.append(list_of_grids[t][b])
+        
+    ida.add_data(d(fire_count,"Fire screen",description="Fire within range 1 grid box and 1 day?"))
+    
+    if do_a_save != "":
+       print "Saving ida as %s" %do_a_save
+       cPickle.dump(ida,open(do_a_save,"wb"))
+       print "Pickle saved to %s" %do_a_save
