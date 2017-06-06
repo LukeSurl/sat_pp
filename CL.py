@@ -153,6 +153,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["BI","Add binned data to individual data"],
             ["N","Associate CSV-form data"],
             ["Ni","Associate NDVI data (individual)"],
+            ["Li","Associate LAI data (individual)"],            
             ["Fi","Associate Fire data (individual)"],
             ["FM","Associate Fire mask"],
             ["R","Reload pickle"],
@@ -264,11 +265,15 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             continue #quit menu    
         bda = associate_CSV(CSV_dir,map_box,bda,startdate,enddate,CSV_name,CSV_desc)
     
-    elif top_level_menu_choice == "NI": #associate NDVI inda
+    elif top_level_menu_choice == "NI": #associate NDVI ida
         NDVI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/NDVI"
         NDVI_3D = NDVI_months_v2(startdate,enddate,NDVI_dir,0.1,0.1,map_box)
         associate_NDVI_v2(ida,NDVI_3D,0.1,0.1,map_box,startdate)
         
+    elif top_level_menu_choice == "LI": #associate LAI ida
+        LAI_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/LAI"
+        LAI_3D = NDVI_months_v2(startdate,enddate,LAI_dir,0.1,0.1,map_box,datatype="LAI")
+        associate_NDVI_v2(ida,LAI_3D,0.1,0.1,map_box,startdate,datatype="LAI")        
     elif top_level_menu_choice == "FI": #associate fires ida
         FIRE_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire"
         FIRE_3D = NDVI_months_v2(startdate,enddate,FIRE_dir,0.1,0.1,map_box,datatype="Fire count")
@@ -483,7 +488,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 ["3","Timeseries"],
                 ["4","Compare two datasets"],
                 ["5","Oversample"],
-                ["6","Overlay"]
+                ["6","Overlay"],
+                ["7","SEASONAL maps"],
+                ["8","SEASONAL inversions"]
                 ]
             uid_menu_choice = basic_menu(uid_menu_title,
                                          uid_menu_text,
@@ -604,6 +611,18 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 save_location = "/home/users/lsurl/CL/OL/allindia_2011-2015_DJF_OL.p"
                 if save_location != "":
                     cPickle.dump(ov_data,open(save_location,"wb"))
+            
+            elif uid_menu_choice == "7": #SEASONAL MAPS
+                save_location = "/home/users/lsurl/CL/imgs"
+                save_location_o = raw_input("Enter path to save images to, or press enter for %s --> "%save_location)
+                if save_location_o != "":
+                    save_location = save_location_o
+                seasonal(ida,map_box,xdim,ydim,colmap,save_location,
+                         do_options=["obs_map","mod_map"])
+            elif uid_menu_choice == "8": #SEASONAL INVERSIONS
+                save_location = "/home/users/lsurl/CL/imgs" #not used 
+                seasonal(ida,map_box,xdim,ydim,colmap,save_location,
+                         do_options=["inversion"])
         
     elif top_level_menu_choice == "Z": #Quit
         reallyquit = ""

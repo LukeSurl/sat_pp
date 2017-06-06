@@ -262,6 +262,8 @@ def readNDVI_v2(NDVIfolder,year,month,xres,yres,compass,datatype="NDVI"):
         filename = '%s/MOD13A2_M_NDVI_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
     elif datatype == "Fire count":
         filename = '%s/MOD14A1_M_FIRE_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
+    elif datatype == "LAI":
+        filename = '%s/MOD15A2_M_LAI_%i-%02d-01_rgb_3600x1800.CSV'  % (NDVIfolder,year,month)
     f = open(filename,"rb")
     data = list(csv.reader(f, delimiter=','))
     f.close()
@@ -394,6 +396,15 @@ def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate,datatype="NDVI"):
             else:
                 NDVI_sea0.append( float(NDVI[i]) ) #also, make sure float
         NDVI_d = d(NDVI_sea0,"NDVI",description="Normalised Diffusive Vegetation Index")
+        
+    elif datatype == "LAI":
+        for i in range(0,len(NDVI)):
+            if NDVI[i] == 99999.:
+                NDVI_sea0.append( 0. )
+            else:
+                NDVI_sea0.append( float(NDVI[i]) ) #also, make sure float
+        NDVI_d = d(NDVI_sea0,"LAI",description="Leaf Area Index")
+            
     elif datatype == "Fire count":
         for i in range(0,len(NDVI)):
             if NDVI[i] == 99999.:

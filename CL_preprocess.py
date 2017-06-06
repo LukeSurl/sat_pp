@@ -61,7 +61,7 @@ def preprocessing(base_dir=None,run_name=None):
             print "[6] Read AMF output and calculate VCs"
             print "[7] Filter for various critera"
             print "[8] Get equivalent BRUG data - processed"
-            print "[A] Do steps 3-7"
+            print "[A] Do steps 5-7 with 2014 as overwrite year"
             print "[X] Change date range"
         print "[M] Merge some pickles"
         print "[Z] Go to previous menu"
@@ -126,7 +126,7 @@ def preprocessing(base_dir=None,run_name=None):
             date_dos = assemble_sat_data(sat_main,date_list,p1,amf_input)
             
             print "Enter AMF calculator directory"
-            amf_run_dir = os.path.join(base_dir,"amf581/")
+            amf_run_dir = os.path.join(base_dir,"amf581g/")
             print "Press enter to use %s" %amf_run_dir          
             amf_run_dir_in = raw_input("-->")
             if amf_run_dir_in !=  "":
@@ -140,7 +140,7 @@ def preprocessing(base_dir=None,run_name=None):
             for i in range(len(date_list)):
                 date_dos.append([date_list[i],True])
             print "Enter AMF calculator directory"
-            amf_run_dir = os.path.join(base_dir,"amf581/")
+            amf_run_dir = os.path.join(base_dir,"amf581g/")
             print "Press enter to use %s" %amf_run_dir          
             amf_run_dir_in = raw_input("-->")
             if amf_run_dir_in !=  "":
@@ -179,23 +179,24 @@ def preprocessing(base_dir=None,run_name=None):
             prep_satellite_slants(date_list,p1,p4)
         
         if option == "5": #apply pacific correction
-            do_pacific = ""
-            while do_pacific not in ["Y","N"]:
-                do_pacific = raw_input("Do pacific correction? Y/N-->").upper()       
+            do_pacific = "Y"
+            #while do_pacific not in ["Y","N"]:
+            #    do_pacific = raw_input("Do pacific correction? Y/N-->").upper()
+            PC_pik = raw_input("Path to pacific correction pickle. Enter for /group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p -->")
+            overwrite_year = input("If forcing model data to particular year, enter this now. Otherwise enter 0 -->")       
             print "Loading pickled data"
             in_p1s = load_daily_pickles(p1)
             if do_pacific == "Y":
-                b_or_dS = ""
-                while b_or_dS not in ["B","S"]:
-                    b_or_dS = raw_input("[B] Barkley correction (offline)\n[S] deSmedt correction-->").upper()
+                b_or_dS = "B"                              
+                #while b_or_dS not in ["B","S"]:
+                #    b_or_dS = raw_input("[B] Barkley correction (offline)\n[S] deSmedt correction-->").upper()
                 if b_or_dS == "S":                  
                     print "Calculating corrections"
                     p2s = pacific_correction(in_p1s,base_dir,run_name)
-                elif b_or_dS == "B":
-                    PC_pik = raw_input("Path to pacific correction pickle. Enter for /group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p -->")
+                elif b_or_dS == "B":                    
                     if PC_pik == "":
-                        PC_pik = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p"
-                    p2s = barkley_correction(in_p1s,base_dir,PC_pik,run_name)
+                        PC_pik = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p"                    
+                    p2s = barkley_correction(in_p1s,base_dir,PC_pik,run_name,overwrite_year=overwrite_year)
             else:
                 p2s = in_p1s
             print "Saving pickle"
@@ -205,7 +206,7 @@ def preprocessing(base_dir=None,run_name=None):
             read_in_AMF(amf_output,p2,p3,"vertical_corrected_unfiltered",date_list)
             
         if option == "7":
-            filtering(p3,p4)
+            filtering(p3,p4,choose_filter=True)
         
         if option == "8":
             this_box = box(40.,0.,105.,60.)
@@ -213,6 +214,37 @@ def preprocessing(base_dir=None,run_name=None):
                 raise IOError("Not a valid box!")
             BRUG = get_BRUG(date_list,this_box)
             cPickle.dump(BRUG,open(join(p4,"BRUG.p"),"wb"))
+        
+        if option == "A":
+            #===5====
+            do_pacific = "Y"
+            #while do_pacific not in ["Y","N"]:
+            #    do_pacific = raw_input("Do pacific correction? Y/N-->").upper()
+            PC_pik = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p"
+            overwrite_year = 2014 
+            print "Loading pickled data"
+            in_p1s = load_daily_pickles(p1)
+            if do_pacific == "Y":
+                b_or_dS = "B"                              
+                #while b_or_dS not in ["B","S"]:
+                #    b_or_dS = raw_input("[B] Barkley correction (offline)\n[S] deSmedt correction-->").upper()
+                if b_or_dS == "S":                  
+                    print "Calculating corrections"
+                    p2s = pacific_correction(in_p1s,base_dir,run_name)
+                elif b_or_dS == "B":                    
+                    if PC_pik == "":
+                        PC_pik = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p"                    
+                    p2s = barkley_correction(in_p1s,base_dir,PC_pik,run_name,overwrite_year=overwrite_year)
+            else:
+                p2s = in_p1s
+            print "Saving pickle"
+            save_daily_pickles(p2s,p2,"slant_corrected_unfiltered")
+            
+            #===6===
+            read_in_AMF(amf_output,p2,p3,"vertical_corrected_unfiltered",date_list)
+            
+            #===7===
+            filtering(p3,p4)
         
         if option == "M":
             merge_pickles()
@@ -545,9 +577,13 @@ def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save):
     
     return(have_data)
 
-def YYYYMMDD_sub(date,string):
+def YYYYMMDD_sub(date,string,overwrite_year=0):
     """substitutes YYYY, MM, DD with appropriate values from a date"""
-    YYYY = date.strftime("%Y")
+    #overwrite_year allows a different year to be specified.
+    if overwrite_year==0:
+        YYYY = date.strftime("%Y")
+    else:
+        YYYY = str(overwrite_year)
     MM =   date.strftime("%m")
     DD =   date.strftime("%d")
     string = string.replace("YYYY",YYYY)
@@ -566,6 +602,7 @@ def write_bsub(date_dos,AMF_rundir,AMF_input,AMF_output,geos_main):
     outfile = open(add_slash(AMF_input)+"batch_jobs.sh",'w')
     outfile.write("#!/bin/bash\n")
     outfile.write("cd "+AMF_rundir+"\n")
+    overwrite_year = input("If forcing a different year for model data, enter it here. Otherwise enter 0 -->") 
     
     for date_do in date_dos:
         if date_do[1] == False:
@@ -577,11 +614,17 @@ def write_bsub(date_dos,AMF_rundir,AMF_input,AMF_output,geos_main):
         outfile.write(' ')
         outfile.write(YYYYMMDD_sub(this_date,AMF_inputs)) #observation data
         outfile.write(' ')
-        outfile.write(YYYYMMDD_sub(this_date,GEOS_ND51_files)) #GOES ND51
+        if overwrite_year == 0:
+            outfile.write(YYYYMMDD_sub(this_date,GEOS_ND51_files)) #GEOS ND51
+        else:
+            outfile.write(YYYYMMDD_sub(this_date,GEOS_ND51_files,overwrite_year=overwrite_year))
         outfile.write(' ')
         outfile.write(YYYYMMDD_sub(this_date,output_location)) #where to write output
         outfile.write(' ')
-        outfile.write(YYYYMMDD_sub(this_date,'YYYY MM DD')) #date stamp
+        if overwrite_year == 0:
+            outfile.write(YYYYMMDD_sub(this_date,'YYYY MM DD')) #date stamp
+        else:
+            outfile.write(YYYYMMDD_sub(this_date,'YYYY MM DD',overwrite_year=overwrite_year))
         outfile.write('\n') #new line
     
     outfile.close()
@@ -725,6 +768,7 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
 
 def prep_satellite_slants(date_list,p1,save_dir):
 
+    suffix = raw_input("suffix for filename-->")
     #loop through days
     daily_new_OMIs = []
     for date_clock in date_list :
@@ -735,8 +779,7 @@ def prep_satellite_slants(date_list,p1,save_dir):
             OMI_in = pickle.load(open(p1_path,"rb"))
         except IOError:
             #file doesn't exist
-            if print_missing_dates:
-                print "%s does not exist" %pickle2_path           
+            print "File here does not exist!"
             continue #go to next date
         
         daily_new_OMIs.append(OMI_in)
@@ -750,6 +793,7 @@ def prep_satellite_slants(date_list,p1,save_dir):
     print "Data points prior to filter: %i" %num_pre_filter
     filter_i = []
     for i in range(0,num_pre_filter):
+    
         if OMI_all.data["main data quality flag"].val[i] != 0 :
             filter_i.append(False)
             continue
@@ -769,6 +813,9 @@ def prep_satellite_slants(date_list,p1,save_dir):
         if abs(OMI_all.data["DSC"].val[i]) > abs(OMI_all.data["SC"].val[i]*3):
             filter_i.append(False)
             continue
+        if abs(OMI_all.data["SC"].val[i]) > 1.5e17:
+            filter_i.append(False)
+            continue
         #if we get this far, this data point has passed
         filter_i.append(True)
     #filter this data
@@ -776,11 +823,13 @@ def prep_satellite_slants(date_list,p1,save_dir):
 
     #add meta information about filtering
     OMI_all.meta["Filtering criteria"] = \
+                "row != 0 or 59\n"+\
                 "main data quaility flag == 0\n"+\
                 "Xtrack quaility flag == 0\n"+\
                 "Solar zenity angle <= 70.\n"+\
                 "Cloud fraction <= 0.4\n"+\
-                "DSC < abs(SC*3)"
+                "DSC < abs(SC*3)\n"+\
+                "SC < 1.5e17"
     OMI_all.meta["Filtering stats"] = \
         {"Total datapoints":num_pre_filter,
          "Retained datapoints":len(OMI_all.lat),
@@ -788,7 +837,7 @@ def prep_satellite_slants(date_list,p1,save_dir):
     
     print OMI_all.meta["Filtering stats"]     
     
-    save_path = join(save_dir,"slants_filtered.p")
+    save_path = join(save_dir,"slants_filtered_%s.p"%suffix)
     print "Saving as %s" %save_path
     cPickle.dump(OMI_all,open(join(save_path),"wb"))
         
@@ -894,15 +943,17 @@ def pacific_correction(in_p1s,base_dir,run_name):
     return(out_p2s)
 
 
-def barkley_correction(in_p1s,base_dir,PC_pik,run_name):
+def barkley_correction(in_p1s,base_dir,PC_pik,run_name,overwrite_year=0):
     
     PC_all = cPickle.load(open(PC_pik,"rb"))
     out_p2s = []
     
     for in_p1 in in_p1s:
         date_clock = in_p1.meta["day"]
-        
-        date_clock_date = date(date_clock.year,date_clock.month,date_clock.day)
+        if overwrite_year==0:
+            date_clock_date = date(date_clock.year,date_clock.month,date_clock.day)
+        else:
+            date_clock_date = date(overwrite_year,date_clock.month,date_clock.day)
         print date_clock_date
         today_corr = [PC_all[i] for i in range(0,len(PC_all)) if PC_all[i].date == date_clock_date][0]
         
@@ -972,14 +1023,17 @@ def save_daily_pickles(p_in,directory,suffix):
         pickle_name = add_slash(directory)+this_date.strftime("%Y-%m-%d")+"_"+suffix+".p"
         cPickle.dump(p,open(pickle_name,"wb")) 
         
-def filtering(p3_dir,p4_dir):
+def filtering(p3_dir,p4_dir,choose_filter=True):
     """Filters out data which fails various quality standards"""
     
     #let the user choose default or custom filtering option
-    filter_option = basic_menu("Default or custom filtering?",
+    if choose_filter:
+        filter_option = basic_menu("Default or custom filtering?",
                                [["1","Default filtering"],
-                                ["2","Custom filtering"]],
+                                ["2","No cloud filtering"]],
                                 quit_option=True)
+    else:
+        filter_option = "1"
     
     #load_the_pickle
     p3_files = [add_slash(p3_dir)+f
@@ -1006,16 +1060,17 @@ def filtering(p3_dir,p4_dir):
 
     if filter_option == "Z":
         return
-    elif filter_option == "1":
+    elif filter_option in ["1","2"]:
         print "Default filtering chosen"
         #Main data quality flag
         print "Removing rows 0 and 59 (edge of swath)"
         print "Removing points where Main Data Quality Flag =! 0"
         print "Removing points where Xtrack Quality Flag != 0"
         print "Removing points where Solar Zenith Angle > 70 deg"
-        print "Removing points where Cloud fraction > 0.4"
+        if filter_option == "1":
+            print "Removing points where Cloud fraction > 0.4"
         print "Clearing points where AMF or pacific correction failed"
-        print "Removing points where vertical column errors larger than 3 times column"
+        #print "Removing points where vertical column errors larger than 3 times column"
         filter_i = []
         num_pre_filter = len(ida.lat)
         for i in range(0,num_pre_filter):
@@ -1028,17 +1083,21 @@ def filtering(p3_dir,p4_dir):
             if ida.data["SZA"                   ].val[i] > 70.:
                 filter_i.append(False)
                 continue
-            if ida.data["cloud fraction"        ].val[i] > 0.4 :
-                filter_i.append(False)
-                continue
+            if filter_option == "1":
+                if ida.data["cloud fraction"        ].val[i] > 0.4 :
+                    filter_i.append(False)
+                    continue
             if np.isnan(ida.data["sat_VC"       ].val[i]):
                 #AMF or pacific correction failed here
                 filter_i.append(False)
                 continue
-            if abs(ida.data["sat_DVC"].val[i]) > abs(ida.data["sat_VC"].val[i]*3):
+            #if abs(ida.data["sat_DVC"].val[i]) > abs(ida.data["sat_VC"].val[i]*3):
+            #    filter_i.append(False)
+            #    continue
+            if abs(ida.data["sat_VC"].val[i]) > 1.5e17:
                 filter_i.append(False)
                 continue
-            if abs(ida.data["sat_VC"].val[i]) > 1.5e17:
+            if abs(ida.data["sat_VC"].val[i]) < -5e16:
                 filter_i.append(False)
                 continue
             #if we get this far, this data point has passed
@@ -1047,29 +1106,36 @@ def filtering(p3_dir,p4_dir):
         ida.filter_all(filter_i)
 
         #add meta information about filtering
-        ida.meta["Filtering criteria"] = \
-                    "row != 0 or 59\n"+\
-                    "main data quaility flag == 0\n"+\
-                    "Xtrack quaility flag == 0\n"+\
-                    "Solar zenity angle <= 70.\n"+\
-                    "Cloud fraction <= 0.4\n"+\
-                    "DVC < abs(VC*3)\n"+\
-                    "VC < 15e16"
+        if filter_option == "1":
+            ida.meta["Filtering criteria"] = \
+                        "row != 0 or 59\n"+\
+                        "main data quaility flag == 0\n"+\
+                        "Xtrack quaility flag == 0\n"+\
+                        "Solar zenity angle <= 70.\n"+\
+                        "Cloud fraction <= 0.4\n"+\
+                        "VC < 15e16\n"+\
+                        "VC > -5e16"
+        elif filter_option == "2":
+            ida.meta["Filtering criteria"] = \
+                        "row != 0 or 59\n"+\
+                        "main data quaility flag == 0\n"+\
+                        "Xtrack quaility flag == 0\n"+\
+                        "Solar zenity angle <= 70.\n"+\
+                        "VC < 15e16\n"+\
+                        "VC > -5e16"        
         ida.meta["Filtering stats"] = \
             {"Total datapoints":num_pre_filter,
              "Retained datapoints":len(ida.lat),
              "Removed datapoints":num_pre_filter-len(ida.lat)}
-        
         print ida.meta["Filtering stats"]     
-        
-        save_path = join(p4_dir,"vertical_corrected_filtered.p")
+        if filter_option == "1":
+            save_path = join(p4_dir,"vertical_corrected_filtered.p")
+        elif filter_option == "2":
+            save_path = join(p4_dir,"vertical_corrected_filtered_notcld.p")
         print "Saving as %s" %save_path
         cPickle.dump(ida,open(join(save_path),"wb"))
-        _ = raw_input("Press enter to continue")
-        return
-    elif filter_option == "2":
-        print "I haven't programmed this yet"
-        return   
+        #_ = raw_input("Press enter to continue")
+        return 
 
 def get_BRUG(date_list,this_box):
     """For a particular pickle, brings in other OMI data from a particular directory"""
@@ -1310,4 +1376,4 @@ def normal_from_BRUG(date_list,this_box,p1,amf_input):
         
     return(date_dos)        
       
-preprocessing(base_dir="/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP")         
+preprocessing(base_dir="/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/clim")         

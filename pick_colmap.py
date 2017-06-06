@@ -65,9 +65,13 @@ def pick_colmap(preview=False,returntype="normal"):
     reverse = ""
     while reverse not in ["Y","N"]:
         reverse = raw_input("Reverse the color map? Y/N -- >").upper()
+    if reverse=="Y":
+        rev=True
+    else:
+        rev=False
     for n in range(12,7,-1): #get maximum number of colors
         try:
-            bmap = brewer2mpl.get_map(map_choice, map_type_full, n, reverse=reverse)
+            bmap = brewer2mpl.get_map(map_choice, map_type_full, n, reverse=rev)
             break
         except ValueError:
             pass

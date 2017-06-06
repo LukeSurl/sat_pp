@@ -637,7 +637,7 @@ def global_options(map_box,xdim,ydim,startdate,enddate,winter_flag):
         print "[T] Change time frame"
         print "[W] Toggle special winter months in this time-frame option (currently %r)"%winter_flag
         print "[Z] Return to top menu"
-        choice = raw_input("-->")
+        choice = raw_input("-->").upper()
         if choice == "B" or choice == "b":
             new_north = float(raw_input("Enter new value for NORTH:"))
             new_south = float(raw_input("Enter new value for SOUTH:"))
@@ -860,7 +860,7 @@ def free_colorbar(vmin,vmax,label="no label selected",colmap=None):
 
 def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec/cm2",
                         save=False,save_filename="nofilenamespecified",
-                        colmap=None):
+                        colmap=None,do_plot=True):
     #Define basemap
     m = prepare_map(map_box)
     color_index = colors.Normalize(vmin,vmax)
@@ -879,7 +879,10 @@ def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=
     fig = plt.gcf()
     if save:    
         fig.savefig(save_filename, dpi=600)
-    plt.show()
+    if do_plot:
+        plt.show()
+    else:
+        plt.close(fig)
 
 def plot_dots_on_map(lat,lon,var,map_box,vmin=0.,vmax=3.0E16,title="Unnamed plot",lab="HCHO column molec/cm2",
                      save=False,save_filename="nofilenamespecified",
@@ -1449,7 +1452,8 @@ def two_var_comparison(ida):
                 tvc3_menu_text = [["1","Scatter plot"],
                                   ["2","Simple correlation statistics"],
                                   ["3","Error bar plot"],
-                                  ["4","Advanced correlation statistics"]]
+                                  ["4","Advanced correlation statistics"],
+                                  ["5","write out datasets as CSV"]]
                 type_of_comparison = basic_menu(tvc3_menu_title,
                                                 tvc3_menu_text,
                                                 quit_option=True)
@@ -1467,7 +1471,7 @@ def two_var_comparison(ida):
                         continue
                         
                 #Need to make sure there are no nans in the data going in.
-                if type_of_comparison in ["1","2"]:
+                if type_of_comparison in ["1","2","5"]:
                     (nonan_x_var,nonan_y_var) = \
                             stripallnans(x_var,y_var)
                 else:                        
@@ -1492,7 +1496,7 @@ def two_var_comparison(ida):
                                  np.nanmin(nonan_y_var),np.nanmax(nonan_y_var)]
                     alpha = "auto" 
                     while goplot == False:
-                        print "x-axis min: %g \nx-axis min: %g\ny-axis min: %g \ny-axis min: %g\nalpha: %s"\
+                        print "x-axis min: %g \nx-axis max: %g\ny-axis min: %g \ny-axis max: %g\nalpha: %s"\
                               %(axes_lims[0],axes_lims[1],axes_lims[2],axes_lims[3],str(alpha))
                         print "Type C to change, or press ENTER to plot"
                         opt = raw_input("-->").upper()
@@ -1520,7 +1524,7 @@ def two_var_comparison(ida):
                                       x_label=x_var_name,y_label=y_var_name,
                                       alpha=alpha,
                                       x_min=axes_lims[0],x_max=axes_lims[1],
-                                      y_min=axes_lims[2],y_max=axes_lims[3])
+                                      y_min=axes_lims[2],y_max=axes_lims[3],do_best_fit=True)
                 elif type_of_comparison == "2":
                     print "Linear regression:"
                     slope, intercept, r_value, p_value, std_err = scistats.linregress(nonan_x_var,nonan_y_var)
@@ -1534,7 +1538,7 @@ def two_var_comparison(ida):
                     polyfit = np.polyfit(nonan_x_var, nonan_y_var, 1)
                     inv_opt = raw_input("Enter to continue or I to use these as inputs to an inversion -->").upper()
                     if inv_opt == "I":
-                        ida = second_stage(slope,intercept,ida)
+                        ida = second_stage(slope,std_err,intercept,ida)
                         _ = raw_input("Inversion done. Press enter to continue -->")
     
                 elif type_of_comparison == "3":
@@ -1568,6 +1572,17 @@ def two_var_comparison(ida):
                     print "Best-fit line: y = (%+.2g +/- %+.2g)x + (%+.2g +/- %+.2g)" %(m,merr,b,berr)
                     print "Goodness of fit: %g" %gof 
                     _ = raw_input("Press enter to continue-->")
+                elif type_of_comparison == "5":
+                    #write as csv
+                    write_filename = raw_input("Enter path to save to, including extension -->")
+                    f = open(write_filename,"wb")
+                    for i in range(len(nonan_x_var)):
+                        f.write(str(nonan_x_var[i]))
+                        f.write(",")
+                        f.write(str(nonan_y_var[i]))
+                        f.write(",")
+                        f.write("\n")
+                    f.close()
 
 def get_errors(ida,var_key):
     """Selects errors based on user options"""
@@ -1653,9 +1668,9 @@ def error_bar_scatter(x_var,y_var,
                      alpha=alpha)   
     
     if do_best_fit or do_best_fit_equation:
-        par = np.polyfit(x_var, y_var, 1, full=True)
-        slope=par[0][0]
-        intercept=par[0][1]
+    
+        slope, intercept, r_value, p_value, std_err = scistats.linregress(x_var, y_var)
+        
         line_xs = [x_min, x_max]
         line_ys = [x_min*slope + intercept,x_max*slope + intercept]
         if do_best_fit:
@@ -2216,7 +2231,7 @@ def criteria_filtering(ida):
                        ["3","Keep values of %s which are LESS THAN a specified value"%cf_var_name],
                        ["4","Keep values of %s which are MORE THAN a specified value"%cf_var_name]]
                        )
-    if cf1_menu_choice == "Z":
+    if cf1_menu_choice.upper() == "Z":
         return(ida)
     
     cf3_menu_choice = input("Enter the critical value-->")
@@ -2252,7 +2267,7 @@ def criteria_filtering(ida):
     ida.filter_all(filter_TF)
     
     post_f_n = len(ida.lat)
-    print "%i values prior to filtering."%post_f_n
+    print "%i values post filtering."%post_f_n
     _=raw_input("Press enter to continue-->")
     return(ida)
 
@@ -2395,21 +2410,27 @@ def binned_to_indv(ida,bda):
         
     return(ida)
         
-def second_stage(gradient,intercept,ida):
+def second_stage(gradient,err,intercept,ida):
     
     HCHO_obs = ida.data['sat_VC'].val
     HCHO_errs = ida.data['sat_DVC'].val
     
     isop_inverted = np.divide(np.subtract(HCHO_obs,intercept),gradient)
+    isop_inverted_low = np.divide(np.subtract(HCHO_obs,intercept),gradient-err)
+    isop_inverted_high = np.divide(np.subtract(HCHO_obs,intercept),gradient+err)
     
-    isop_inverted_errs = np.multiply(isop_inverted,
-                           np.divide(HCHO_errs,np.absolute(HCHO_obs)))
+    #isop_inverted_errs = np.multiply(isop_inverted,
+    #                       np.divide(HCHO_errs,np.absolute(HCHO_obs)))
                            
     ida.add_data(d(isop_inverted,"isop_inv",description="Isoprene emissions derived from inversion"))
     ida.data["isop_inv"].units="C.cm-2.s-1"
+    ida.add_data(d(isop_inverted_low,"isop_inv_low",description="Isoprene emissions derived from inversion - low estimate"))
+    ida.data["isop_inv_low"].units="C.cm-2.s-1"
+    ida.add_data(d(isop_inverted_high,"isop_inv_high",description="Isoprene emissions derived from inversion - high estimate"))
+    ida.data["isop_inv_high"].units="C.cm-2.s-1"
     
-    ida.add_data(d(isop_inverted,"isop_inv_errs",description="Error in isoprene emissions derived from inversion"))
-    ida.data["isop_inv_errs"].units="C.cm-2.s-1"
+    #ida.add_data(d(isop_inverted,"isop_inv_errs",description="Error in isoprene emissions derived from inversion"))
+    #ida.data["isop_inv_errs"].units="C.cm-2.s-1"
    
     return(ida)        
     
@@ -2511,3 +2532,126 @@ def daily_fire_filter(ida,fire_file,start_date,end_date,map_box,xdim,ydim):
        print "Saving ida as %s" %do_a_save
        cPickle.dump(ida,open(do_a_save,"wb"))
        print "Pickle saved to %s" %do_a_save
+       
+       
+def seasonal(perm_ida,map_box,xdim,ydim,colmap,save_path,
+             do_options=["obs_map","mod_map","inversion"]):
+    print "Doing seasonal processing on data"
+    
+    #if we are doing inversions, ask user for X and Y variables
+    if "inversion" in do_options:
+         #X       
+         invx_menu_title = "For inversion, which is the independent (X axis) varible?"
+         [invx_menu_text,invx_answers_dict] = perm_ida.make_menu()
+         invx_menu_choice = basic_menu(invx_menu_title,
+                                        invx_menu_text,
+                                        quit_option=False)
+         invx_key = invx_answers_dict[invx_menu_choice]
+         
+         #Y
+         invy_menu_title = "For inversion, which is the dependent (Y axis) varible?"
+         [invy_menu_text,invy_answers_dict] = perm_ida.make_menu()
+         invy_menu_choice = basic_menu(invy_menu_title,
+                                        invy_menu_text,
+                                        quit_option=False)
+         invy_key = invx_answers_dict[invy_menu_choice]
+    
+    for season in ["all","winter","pre-monsoon","monsoon","post-monsoon"]:
+        print "========"
+        #define months in season as season_months
+        if season == "all":
+            print "No seasonal selection"
+            season_months = [1,2,3,4,5,6,7,8,9,10,11,12]
+        elif season == "winter":
+            print "Winter season"
+            season_months = [1,2]
+        elif season == "pre-monsoon":
+            print "Pre-monsoon season"
+            season_months = [3,4,5]
+        elif season == "monsoon":
+            print "Monsoon season"
+            season_months = [6,7,8,9]
+        elif season == "post-monsoon":
+            print "Post-monsoon season"
+            season_months = [10,11,12]
+        
+        #make a deep copy of ida
+        print "making a copy..."
+        this_ida = copy.deepcopy(perm_ida)
+        
+        #now filter it
+        print "filtering for season..."
+        filter_list = [this_ida.time[i].month in season_months for i in range(len(this_ida.time)) ]
+        this_ida.filter_all(filter_list)
+        
+        #are we doing either mapping options?
+        if "obs_map" in do_options or "mod_map" in do_options:
+            #if so, standard binning.
+            print "Binning..."
+            this_bda = create_binned_set(this_ida,map_box,xdim,ydim)
+            
+            #make obs_map
+            if "obs_map" in do_options:
+                save_filename = "%s/obscol_%s.png" %(save_path,season)
+                print "Creating %s" %save_filename
+                plot_grid_from_list(this_bda.lat,this_bda.lon,
+                                    this_bda.data["sat_VC_mean"].val,
+                                    this_bda.meta["Binning dimensions"][0],
+                                    this_bda.meta["Binning dimensions"][1],
+                                    map_box,title="Observed HCHO vertical column, season = %s"%season,
+                                    vmin=0,vmax=2e16,lab="molec.cm-2",
+                                    save=True,
+                                    save_filename=save_filename,
+                                    colmap=colmap,do_plot=False)
+            
+            #make mod_map
+            if "mod_map" in do_options:
+                save_filename = "%s/modcol_%s.png" %(save_path,season)
+                print "Creating %s" %save_filename
+                plot_grid_from_list(this_bda.lat,this_bda.lon,
+                                    this_bda.data["geos_VC_mean"].val,
+                                    this_bda.meta["Binning dimensions"][0],
+                                    this_bda.meta["Binning dimensions"][1],
+                                    map_box,title="Modelled HCHO vertical column, season = %s"%season,
+                                    vmin=0,vmax=2e16,lab="molec.cm-2",
+                                    save=True,
+                                    save_filename=save_filename,
+                                    colmap=colmap,do_plot=False)
+            
+        
+        #are we doing inversions?
+        if "inversion" in do_options:
+            print "Inversion"
+            
+            (nonan_x_var,nonan_y_var) = \
+                            stripallnans(this_ida.data[invx_key].val,this_ida.data[invy_key].val)
+            
+            print "Linear regression:"
+            slope, intercept, r_value, p_value, std_err = scistats.linregress(nonan_x_var,nonan_y_var)
+            print "Best-fit line: y = %+.2gx%+.2g " %(slope,intercept)
+            r_squared = r_value * r_value
+            print "R-squared    : %.4g " %r_squared
+            print "P-value      : %.4g " %p_value
+            print "Standard err : %g "   %std_err        
+            pearsonr = scistats.pearsonr(nonan_x_var,nonan_y_var)
+            print "Pearson's correlation coefficient:\n %f, 2-tailed p-value: %f" %(pearsonr[0],pearsonr[1])
+            polyfit = np.polyfit(nonan_x_var, nonan_y_var, 1)
+            
+            this_ida = second_stage(slope,std_err,intercept,this_ida)
+            
+            print "Prior emission rate: %g" %np.nanmean(this_ida.data[invx_key].val)
+            
+            frac_err = np.nanmean(this_ida.data["sat_DVC"].val) / np.nanmean(this_ida.data["sat_VC"].val)
+            count = np.count_nonzero(~np.isnan(this_ida.data["isop_inv"].val))
+            sqrtcount = math.sqrt(count)
+            
+            pm = np.nanmean(this_ida.data["isop_inv"].val)*(frac_err/sqrtcount)
+            
+            #print "Post emission rate, low: %g" %np.nanmean(this_ida.data["isop_inv_low"].val)
+            print "Post emission rate: %g" %np.nanmean(this_ida.data["isop_inv"].val)
+            print "plus/minus --> %g" %pm
+            print pm
+            #print "Post emission rate, low: %g" %np.nanmean(this_ida.data["isop_inv_high"].val)            
+        del this_ida
+            
+            

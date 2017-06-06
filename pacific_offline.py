@@ -27,8 +27,8 @@ do_obs = True #work out median obs in reference sector
 do_geos = True #work out median model column in reference sector
 
 #dates
-first_date = date(2013,1,1)
-last_date = date(2015,12,31)
+first_date = date(2014,1,1)
+last_date = date(2014,12,31)
 
 #get a list of dates
 list_of_dates = []
@@ -38,7 +38,7 @@ while dateclock <= last_date:
     dateclock += td(days=1)
 
 #Load/save loaction
-pickle_location = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2013-2015.p"
+pickle_location = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014b.p"
 
 #data locations
 pacific_data_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/OMHCHO_pacific_bark/"
@@ -121,7 +121,7 @@ for dateclock in list_of_dates:
         today_files = [files_in_geos_folder[i] for i in range(0,len(files_in_geos_folder)) if geos_file_dates[i] == dateclock]
         if len(today_files) != 1:
             today_correction.med_geos = np.nan
-            print "Median modelled slant column for %s: nan" %dateclock.strftime("%Y-%m-%d")
+            print "Median modelled vertical column for %s: nan" %dateclock.strftime("%Y-%m-%d")
         else:        
             f = bpch(join(geos_dir, today_files[0]))
             
