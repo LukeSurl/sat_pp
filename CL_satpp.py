@@ -2654,4 +2654,75 @@ def seasonal(perm_ida,map_box,xdim,ydim,colmap,save_path,
             #print "Post emission rate, low: %g" %np.nanmean(this_ida.data["isop_inv_high"].val)            
         del this_ida
             
-            
+def simple_maths(xda):
+    """Simple mathematical operators on one or two fields"""
+    
+    #should work for both ida and bda objects
+    
+    #operation
+    sm_menu_title = "Choose type of operation (A=first, B=second)"
+    sm_menu_text=[["1","A + B"],
+                  ["2","A - B"],
+                   ["3","A * B"],
+                   ["4","A / B"]]
+    sm_menu_choice= basic_menu(sm_menu_title,
+                                sm_menu_text,
+                                quit_option=True)
+    if sm_menu_choice == "Z":
+        return xda
+    
+    #First dataset
+    d1_menu_title = "Select dataset A:"
+    [d1_menu_text,d1_answers_dict] = xda.make_menu()
+    d1_menu_choice = basic_menu(d1_menu_title,
+                                  d1_menu_text,
+                                  quit_option=False)
+    d1_key =      d1_answers_dict[d1_menu_choice]    
+    d1_var =      xda.data[d1_key].val
+    d1_unit = xda.data[d1_key].unit
+    
+    #Second dataset
+    d2_menu_title = "Select dataset B:"
+    [d2_menu_text,d2_answers_dict] = xda.make_menu()
+    d2_menu_choice = basic_menu(d2_menu_title,
+                                  d2_menu_text,
+                                  quit_option=False)
+    d2_key =      d2_answers_dict[d2_menu_choice]    
+    d2_var =      xda.data[d2_key].val
+    d2_unit = xda.data[d2_key].unit
+    
+    #Perform operation
+    if sm_menu_choice == "1":
+        new_var = np.add(d1_var,d2_var)
+        new_var_sname = d1_key+"_PLUS_"+d2_key
+    elif sm_menu_choice == "2":
+        new_var = np.subtract(d1_var,d2_var)
+        new_var_sname = d1_key+"_MINUS_"+d2_key
+    elif sm_menu_choice == "3":
+        new_var = np.multiply(d1_var,d2_var)
+        new_var_sname = d1_key+"_TIMES_"+d2_key
+    elif sm_menu_choice == "4":
+        new_var = np.divide(d1_var,d2_var)
+        new_var_sname = d1_key+"_DIV_"+d2_key
+    
+    print "Operation successful"
+    
+    #Get new name and units
+    new_var_lname = ""
+    while new_var_lname == "": #keep asking the question if a blank name is specified
+        new_var_lname = raw_input("Type a name for this new field --> ")
+    
+    if sm_menu_choice in ["1","2"]:
+        new_var_unit = d1_unit
+    else:
+        new_var_unit = raw_input("Type units for this new field --> ")
+    
+    #create object and add to container variable
+    
+    d_obj = d(new_var,new_var_sname,description=new_var_lname)
+    d_obj.unit = new_var_unit
+    xda.add_data(d_obj)
+    
+    return(xda)
+        
+    

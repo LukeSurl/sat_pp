@@ -10,9 +10,16 @@ import pickle
 import brewer2mpl
 import pick_colmap
 
-#"shorthand" variables
-yesno = [["Y","Yes"],["N","No"]] 
+#You will need to make this file executable
+#chmod +x CL.py
+#Excute this from the command line:
+#./CL.py
 
+#Here begins the program.
+
+yesno = [["Y","Yes"],["N","No"]] #helps with simple questions
+
+#"default" variable nameds for data 
 indiv_varnames = ["latitude",
                   "longitude",
                   "Observed vertical column",
@@ -30,6 +37,10 @@ binned_varnames= ["latitude",
                   "Modelled vertical column, standard deviation in bin",
                   "Country",
                   "State"]
+
+#We'll look for settings.p in the current working directory
+#The idea of this file is to save you having to set the same variables
+#repeatedly from one session to another.
 
 #load settings (if settings.p file exists)
 if os.path.isfile("settings.p"):
@@ -59,9 +70,24 @@ else: #otherise, some default options
     current_pickle = "NONE SELECTED"
     current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014/" 
 
-#initialisation
+#default colormap
+colmap = brewer2mpl.get_map("RdYlBu","Diverging", 6, reverse=True)
 
-if current_pickle == "NONE SELECTED":
+#==Loading data==
+#The main data sets for this utility are saved as pickles:
+#a) All the individual data (data for each sateliite pixel)
+#Such files are saved with the suffix "_indiv.p", though we can also 
+#load data in the correct format with any filename (such as the
+# output from the pre-processor)
+# This data is loaded to the variable "ida"
+#b) The binned data (binned onto a grid)
+#This file has the suffix "_binned.p"
+#The data is loaded into the variable "bda"
+
+#This script asks the user if they want to load the last set of data used
+#as recorded in settings.p
+
+if current_pickle == "NONE SELECTED": #if settings.p does not exist
     initial_choice = "2"
 else:
     initial_choice = basic_menu(
@@ -71,28 +97,20 @@ else:
                      ["2","Proceed without loading"]
                     ],
                     quit_option=False)
-
-
-#default colormap
-colmap = brewer2mpl.get_map("RdYlBu","Diverging", 6, reverse=True)
-
-##defunct - now part of CL_preprocess
-#filtered_startdate = dt(1970,1,1)
-#filtered_enddate   = dt(2099,12,31)
-#filtered_folder    = \
-#    "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/filtered/"
-#corrections_folder= \
-#    "/group_workspaces/jasmin/geoschem/local_users/lsurl/sat_pp/corrections/"
-#corr_type="basic"
-
-  
+ 
 
 if initial_choice == "1":
     print "Loading default options"       
     
     #ida is the main data holder for all individual data
     #it is of type ind_data_all and holds ind type objects
-    ida_p = load_new_pickles_da(current_pickle,"_2.p")
+    try:
+        ida_p = load_new_pickles_da(current_pickle,"_2.p") #legacy
+    except IOError: #if "_2.p" file does not exist
+        try:
+            ida_p = load_new_pickles_da(current_pickle,"_indiv.p")
+        except IOError:
+            print "No ida file? Will try to proceed anyway"
     ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
     
     #bda is the main data holder for all binned data
@@ -103,22 +121,9 @@ if initial_choice == "1":
     except IOError:
         print "%s_binned.p does not exist. If you want binned data, you'll need to do the binning" %current_pickle
         _ = raw_input("Press enter to continue")
-   
-    #(NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month) = NDVI_data_all
-    #(lat,lon,
-    #    sat_VC,sat_DVC,
-    #    geos_VC,time,
-    #    country,state,
-    #    index_map) = indv_data_all
-    #(lat_binned,lon_binned,
-    #    sat_VC_mean_binned,sat_VC_stdev_binned,
-    #    sat_DVC_mean_binned,
-    #    geos_VC_mean_binned,geos_VC_stdev_binned,
-    #    country_binned,state_binned) = binn_data_all
-    #dev_mean_binned = list(np.subtract(geos_VC_mean_binned,sat_VC_mean_binned))
     
 
-#main loop
+#Main menu loop.
 top_level_menu_choice = ""
 while top_level_menu_choice != "Z": #loop unless ordered to quit
 
@@ -134,6 +139,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     ),
     open("settings.p","wb"))
 
+    #The menu
+    
     top_level_menu_title = "TOP LEVEL MENU\n" \
                "Current pickles loaded: %s\n" \
                "Current GEOS chem directory: %s" \
@@ -185,12 +192,17 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             if os.path.isfile(current_pickle+"_2.p"): #try with _2.p suffix
                 print "Found individual data: " + current_pickle+"_2.p"
                 ida_p = load_new_pickles_da(current_pickle,"_2.p")
-                ida = ida_p #ida_p is kept static while ida gets modified.
+                ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
+                found_something = True
+            elif os.path.isfile(current_pickle+"_indiv.p"): #try with _indiv.p suffix
+                print "Found individual data: " + current_pickle+"_indiv.p"
+                ida_p = load_new_pickles_da(current_pickle,"_indiv.p")
+                ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
                 found_something = True
             elif os.path.isfile(current_pickle+".p"): #try with no suffix
                 print "Found individual data: " + current_pickle+".p"
                 ida_p = load_new_pickles_da(current_pickle,".p")
-                ida = ida_p #ida_p is kept static while ida gets modified.
+                ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
                 found_something = True
             else:
                 print "No individual data found!"
@@ -476,6 +488,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 
             elif ubd_menu_choice == "4": #write as CSV
                 write_as_csv(bda)
+                
+            elif ubd_menu_choice == "5": #simple maths
+                bda = simple_maths(bda)
                      
     elif top_level_menu_choice == "2": #Indiv data
         #uid = use individual data
@@ -490,7 +505,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 ["5","Oversample"],
                 ["6","Overlay"],
                 ["7","SEASONAL maps"],
-                ["8","SEASONAL inversions"]
+                ["8","SEASONAL inversions"],
+                ["9","Simple mathetatical operations"]
                 ]
             uid_menu_choice = basic_menu(uid_menu_title,
                                          uid_menu_text,
@@ -623,6 +639,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 save_location = "/home/users/lsurl/CL/imgs" #not used 
                 seasonal(ida,map_box,xdim,ydim,colmap,save_location,
                          do_options=["inversion"])
+            
+            elif uid_menu_choice == "9": #Simple maths
+                ida = simple_maths(ida)
         
     elif top_level_menu_choice == "Z": #Quit
         reallyquit = ""
