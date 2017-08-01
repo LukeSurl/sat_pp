@@ -53,7 +53,7 @@ if os.path.isfile("settings.p"):
     current_pickle,current_geosfolder
     ) = cPickle.load(open("settings.p","rb"))
 else: #otherise, some default options
-    country_statefile="/home/users/lsurl/CL/country_state.csv"    
+    country_statefile="country_state.csv"    
     map_box = box(38., #north
                   2.,  #south
                   100.,#east
