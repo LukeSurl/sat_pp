@@ -1374,27 +1374,11 @@ def add_slash(string):
     else:
         return(string+"/")
 
-def save_pickle(da,save_path=None,prefix=None,suffix="_x.p"):
+def save_pickle(da,save_path=None,suffix="_x.p"):
     """A routine to save a data_all object"""
     
-    if save_path == None:
-        print "Enter path (not filename) for pickles to saved to (blank entry for script folder):"
-        save_path = raw_input("-->")
-
-        #add in a final slash if the user has missed it
-        #if it's blank it defaults to the script directory
-        if save_path != "": 
-            if not save_path.endswith("/"):
-                save_path =save_path + "/"
-    
-    if prefix == None:
-        print "Enter name for pickle file. A suffix of %s will be appended automatically:" %suffix
-        pickle_name = raw_input("-->")
-        pickle_name = pickle_name+suffix
-    else:
-        pickle_name = prefix+suffix
-    
-    save_location = save_path+pickle_name
+    pickle_name = save_path+suffix  
+    save_location = pickle_name
     
     cPickle.dump(da,open(save_location,"wb"))
     print "Pickle saved to %s" %save_location                 
