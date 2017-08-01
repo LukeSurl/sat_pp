@@ -68,7 +68,7 @@ else: #otherise, some default options
                         100.,#east
                         65.) #west                              
     current_pickle = "NONE SELECTED"
-    current_geosfolder = "/group_workspaces/jasmin/geoschem/local_users/lsurl/runs/geosfp_025x03125_tropchem_in_2014/" 
+    current_geosfolder = "NONE SELECTED" 
 
 #default colormap
 colmap = brewer2mpl.get_map("RdYlBu","Diverging", 6, reverse=True)
@@ -403,26 +403,17 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
 
                   
     elif top_level_menu_choice == "S":
-        print "Enter path for pickles to saved to (blank entry for script folder):"
+        print "Enter full path and filename for pickles to be saved to. '_binned.p' and '_2.p' suffixes will be appended automatically:"
         save_path = raw_input("-->")
-
-        #add in a final slash if the user has missed it
-        #if it's blank it defaults to the script directory
-        if save_path != "": 
-            if not save_path.endswith("/"):
-                save_path =save_path + "/"
-        
-        print "Enter name for pickle file. Suffixes will be appended automatically:"
-        prefix = raw_input("-->")
-                                           
-        save_pickle(ida,save_path=save_path,prefix=prefix,suffix="_2.p")
+   
+        save_pickle(ida,save_path=save_path,suffix="_2.p")
         ida_p = copy.deepcopy(ida) #update the static store
         try:
-            save_pickle(bda,save_path=save_path,prefix=prefix,suffix="_binned.p")
+            save_pickle(bda,save_path=save_path,suffix="_binned.p")
             bda_p = copy.deepcopy(bda) #update the static store
         except NameError: #bda doesn't exist
             pass
-        current_pickle = save_path+prefix
+        current_pickle = save_path
     
     elif top_level_menu_choice == "COL": #change color bar
         colmap = pick_colmap.pick_colmap(preview=False)   
@@ -624,19 +615,19 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
            
             elif uid_menu_choice == "6": #overlayer
                 ov_data = overlay(ida)
-                save_location = "/home/users/lsurl/CL/OL/allindia_2011-2015_DJF_OL.p"
+                save_location = raw_input("Dump this data as a pickle? Enter full path or press enter to skip this-->")
                 if save_location != "":
                     cPickle.dump(ov_data,open(save_location,"wb"))
             
             elif uid_menu_choice == "7": #SEASONAL MAPS
-                save_location = "/home/users/lsurl/CL/imgs"
+                save_location = os.getcwd()
                 save_location_o = raw_input("Enter path to save images to, or press enter for %s --> "%save_location)
                 if save_location_o != "":
                     save_location = save_location_o
                 seasonal(ida,map_box,xdim,ydim,colmap,save_location,
                          do_options=["obs_map","mod_map"])
             elif uid_menu_choice == "8": #SEASONAL INVERSIONS
-                save_location = "/home/users/lsurl/CL/imgs" #not used 
+                save_location = os.getcwd() #not used 
                 seasonal(ida,map_box,xdim,ydim,colmap,save_location,
                          do_options=["inversion"])
             
