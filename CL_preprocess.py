@@ -13,8 +13,9 @@ import cPickle
 import numpy as np
 import copy
 
-from CL_satpp import box,d,d_all,add_slash,clearscreen,basic_menu,geo_select_rectangle_i
+from CL_satpp import box,d,d_all,add_slash,clearscreen,basic_menu,geo_select_rectangle_i,enter_date
 from CL_run_management import run_select,new_run,change_dates
+from pacific_offline import pacific_ol
 #from CL_omi_matchup import match_BRUG
 
 #Tools to filter satellite observational data.
@@ -49,7 +50,7 @@ def preprocessing(base_dir=None,run_name=None):
         else:
             print "[R] Select a different run in this directory"
         print "[N] Set up new run" 
-        if base_dir != None and run_name != None:
+        if base_dir != None and run_name != None: #only see these options if a run has been selected.
             print "[1] Download new 'main' satellite data"
             print "[2] Download new 'pacific' satellite data"
             print "[3] Extract data from main satellite files and generate input for AMF calculator"
@@ -57,6 +58,7 @@ def preprocessing(base_dir=None,run_name=None):
             print "[3b] Extract data from BRUG satellite files and generate input for AMF calculator"
             print "[4] Run AMF calculator"
             print "[4b] Prepare slant-column only file"
+            print "[P] Calculate pacific correction"
             print "[5] Apply pacific correction to slant columns"
             print "[6] Read AMF output and calculate VCs"
             print "[7] Filter for various critera"
@@ -178,28 +180,52 @@ def preprocessing(base_dir=None,run_name=None):
         if option == "4B":
             prep_satellite_slants(date_list,p1,p4)
         
+        if option == "P":
+            print "Pacific reference"
+            PC_pik = raw_input("If a reference file already exists, enter its full path here. Otherwise press enter to generate a new reference file ->")
+            if PC_pik == "":
+                print "Define the reference area. +ve = N/E, -ve = S/W"
+                pacific_ref_n = float(input("NORTH boundary latitude ->"))
+                pacific_ref_s = float(input("SOUTH boundary latitude ->"))
+                pacific_ref_e = float(input("EAST boundary longitude ->"))
+                pacific_ref_w = float(input("WEST boundary longitude ->"))
+                area = (pacific_ref_n,pacific_ref_s,pacific_ref_e,pacific_ref_w)
+                startdate = enter_date('Start date in YYYY-MM-DD format ->')
+                enddate   = enter_date('End date in YYYY-MM-DD format ->')
+                dates = (startdate,enddate)
+                pacific_sat_dir = raw_input("Directory containing pacific satellite data -->")
+                geos_dir = raw_input("Directory containing GEOS-Chem ND51 output covering the reference area (probably a global run) -->")
+                geosfilestr_enter = raw_input("I will assume ND51 filenames begin 'ts_satellite_omi'.\nIf this is correct press enter.\nOtherwise, enter correction here -->")
+                if geosfilestr_enter == "":
+                    geosfilestr='ts_satellite_omi'
+                else:
+                    geosfilestr=geosfilestr_enter
+                pacific_pik = os.path.join(base_dir,run_name,"pacific_correction.p")
+                pacific_ol(area,dates,pacific_sat_dir,geos_dir,pacific_pik,geosfilestr=geosfilestr)
+                PC_pik = pacific_pik
+        
         if option == "5": #apply pacific correction
             do_pacific = "Y"
             #while do_pacific not in ["Y","N"]:
             #    do_pacific = raw_input("Do pacific correction? Y/N-->").upper()
-            PC_pik = raw_input("Path to pacific correction pickle. Enter for /group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p -->")
+            PC_pik = raw_input("Path to pacific correction pickle. Enter for %s -->"%os.path.join(base_dir,run_name,"pacific_correction.p"))
             overwrite_year = input("If forcing model data to particular year, enter this now. Otherwise enter 0 -->")       
             print "Loading pickled data"
             in_p1s = load_daily_pickles(p1)
-            if do_pacific == "Y":
-                b_or_dS = "B"                              
-                #while b_or_dS not in ["B","S"]:
-                #    b_or_dS = raw_input("[B] Barkley correction (offline)\n[S] deSmedt correction-->").upper()
-                if b_or_dS == "S":                  
-                    print "Calculating corrections"
-                    p2s = pacific_correction(in_p1s,base_dir,run_name)
-                elif b_or_dS == "B":                    
-                    if PC_pik == "":
-                        PC_pik = "/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/bark_2014.p"                    
-                    p2s = barkley_correction(in_p1s,base_dir,PC_pik,run_name,overwrite_year=overwrite_year)
-            else:
-                p2s = in_p1s
-            print "Saving pickle"
+            #if do_pacific == "Y":
+            #    b_or_dS = "B"                              
+            #    #while b_or_dS not in ["B","S"]:
+            #    #    b_or_dS = raw_input("[B] Barkley correction (offline)\n[S] deSmedt correction-->").upper()
+            #    if b_or_dS == "S":                  
+            #        print "Calculating corrections"
+            #        p2s = pacific_correction(in_p1s,base_dir,run_name)
+            #    elif b_or_dS == "B":                    
+            if PC_pik == "":
+                PC_pik = os.path.join(base_dir,run_name,"pacific_correction.p")                    
+            p2s = barkley_correction(in_p1s,base_dir,PC_pik,run_name,overwrite_year=overwrite_year)
+                #else:
+                #    p2s = in_p1s
+                #print "Saving pickle"
             save_daily_pickles(p2s,p2,"slant_corrected_unfiltered")
             
         if option == "6":
@@ -1376,4 +1402,4 @@ def normal_from_BRUG(date_list,this_box,p1,amf_input):
         
     return(date_dos)        
       
-preprocessing(base_dir="/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/clim")         
+preprocessing(base_dir="/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/")         

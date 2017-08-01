@@ -3,6 +3,7 @@
 
 from datetime import datetime as dt
 from datetime import timedelta as td
+from datetime import date as date
 import sys
 try:
     from matplotlib.patches import Polygon
@@ -2709,4 +2710,7 @@ def simple_maths(xda):
     
     return(xda)
         
-    
+def enter_date(prompt='date in YYYY-MM-DD format ->'):
+    date_entry = raw_input(prompt)
+    year, month, day = map(int, date_entry.split('-'))
+    return(date(year, month, day))
