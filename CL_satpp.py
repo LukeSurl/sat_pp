@@ -32,6 +32,7 @@ import cPickle
 from WYIBF import *
 from readNDVI import *
 import brewer2mpl
+from netCDF4 import Dataset
 
 def lat_str(y):
     """Returns string for latitude"""
@@ -2714,3 +2715,21 @@ def enter_date(prompt='date in YYYY-MM-DD format ->'):
     date_entry = raw_input(prompt)
     year, month, day = map(int, date_entry.split('-'))
     return(date(year, month, day))
+
+#WORK IN PROGRESS    
+#def write_netCDF(bda,map_box,xdim,ydim):
+#    
+#   #file to save to
+#   save_file = raw_input("Enter full path for netCDF to be saved to (.nc extension recommended) ->")
+#   #open file in write mode
+#   dataset = Dataset(save_file,'w',format='NETCDF4_CLASSIC')
+#   
+#   #work out the lats and lons to have in the file - choose the mapping boundaries
+#   num_lats = int((map_box.n-map_box.s)/ydim + 1)
+#   num_lons = int((map_box.e-map_box.w)/xdim + 1)
+#   
+#   lat = dataset.createDimension('lat', num_lats)
+#   lon = dataset.createDimension('lon', num_lons)
+   
+   
+    
