@@ -349,7 +349,7 @@ def OMI_from_HDF(HDF_file,species="HCHO"):
             else:
                 pass
                 
-           for track in range(0,n_tracks): #assign same time to each of the simultanous pixels
+            for track in range(0,n_tracks): #assign same time to each of the simultanous pixels
                 time.append(dt(time_utc.year,time_utc.month,time_utc.day,time_utc.hour,time_utc.minute,time_utc.second))
         
     #scan and row/track identifiers
@@ -415,13 +415,13 @@ def OMI_from_HDF(HDF_file,species="HCHO"):
     elif species == "NO2":
         #for OMNO2 it's a little easier
         SC = d(
-               list(np.array(df['SlantColumnAmountNO2Destriped']).flatten(),
+               list(np.array(df['SlantColumnAmountNO2Destriped']).flatten()),
                "SC",description="Slant Column Amount NO2")
         #using the destriped product as recommended.
         SC.unit = "molec/cm2"
         
         DSC= d(
-               list(np.array(df['SlantColumnAmountNO2Std']).flatten(),
+               list(np.array(df['SlantColumnAmountNO2Std']).flatten()),
                "DSC",description="Slant Column NO2 Uncertainty")
         DSC.unit = "molec/cm2"
         
@@ -606,9 +606,9 @@ def check_HDFs_in_directory(directory,HDF_type="OMHCHO"):
     
 def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save,species="HCHO"):
     """Initial reading of satellite data"""
-    if species = "HCHO":
+    if species == "HCHO":
         (HDF_files,dates_of_files) = check_HDFs_in_directory(sat_directory,HDF_type="OMHCHO")
-    elif species = "NO2":
+    elif species == "NO2":
         (HDF_files,dates_of_files) = check_HDFs_in_directory(sat_directory,HDF_type="OMNO2")
     else:
         raise ValueError("Call to assemble_sat_data with invalid species option")
@@ -1317,7 +1317,7 @@ def TAI93_to_UTC(TAI93):
     tai_epoch = dt(1993,1,1,0,0,0)
     g=Grain()
     
-    return(g.tai2utc(TAI93,epoch=tai_epoch)
+    return(g.tai2utc(TAI93,epoch=tai_epoch))
 
 
 def OMI_BRUG_from_HDF(HDF_file,this_box=None):
