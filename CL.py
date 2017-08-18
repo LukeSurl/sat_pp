@@ -111,13 +111,15 @@ if initial_choice == "1":
             ida_p = load_new_pickles_da(current_pickle,"_indiv.p")
         except IOError:
             print "No ida file? Will try to proceed anyway"
-    ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
-    
+    #ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
+    ida = ida_p
+
     #bda is the main data holder for all binned data
     #it is of type bin_data_all and holds bnd type objects 
     try:   
         bda_p = load_new_pickles_da(current_pickle,"_binned.p") #bda_p is kept static while bda gets modified.
-        bda = copy.deepcopy(bda_p)
+        #bda = copy.deepcopy(bda_p)
+        bda = bda_p
     except IOError:
         print "%s_binned.p does not exist. If you want binned data, you'll need to do the binning" %current_pickle
         _ = raw_input("Press enter to continue")
@@ -153,6 +155,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["M","Filter down to a defined month"],
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
+            ["PB","Load a binned pickle only"],
+            ["PX","Load an 'auxillary' pickle (binned only)"],
             ["O","Create binned from individual data"],
             ["C","Assign country/state to data"],
             ["CF","Assign country/state to data FAST"],                        
@@ -176,7 +180,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                        top_level_menu_text,
                                        quit_option=False)
     
-    if top_level_menu_choice == "P": #change pickle
+    if top_level_menu_choice in ["P","PB"]: #change/load pickle
         found_something = False
         while found_something == False:
             (changed,current_pickle) = change_pickle(current_pickle)
@@ -184,28 +188,32 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 break
             #reloading is time-consuming so only do if change made
             #delete current
-            if 'ida' in locals():
+            if 'ida' in locals() and top_level_menu_choice == "P":
                 del ida
             if 'bda' in locals():
                 del bda
-                             
-            if os.path.isfile(current_pickle+"_2.p"): #try with _2.p suffix
-                print "Found individual data: " + current_pickle+"_2.p"
-                ida_p = load_new_pickles_da(current_pickle,"_2.p")
-                ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
-                found_something = True
-            elif os.path.isfile(current_pickle+"_indiv.p"): #try with _indiv.p suffix
-                print "Found individual data: " + current_pickle+"_indiv.p"
-                ida_p = load_new_pickles_da(current_pickle,"_indiv.p")
-                ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
-                found_something = True
-            elif os.path.isfile(current_pickle+".p"): #try with no suffix
-                print "Found individual data: " + current_pickle+".p"
-                ida_p = load_new_pickles_da(current_pickle,".p")
-                ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
-                found_something = True
-            else:
-                print "No individual data found!"
+            
+            if top_level_menu_choice == "P": #avoid if PB             
+                if os.path.isfile(current_pickle+"_2.p"): #try with _2.p suffix
+                    print "Found individual data: " + current_pickle+"_2.p"
+                    ida_p = load_new_pickles_da(current_pickle,"_2.p")
+                    #ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
+                    ida = ida_p
+                    found_something = True
+                elif os.path.isfile(current_pickle+"_indiv.p"): #try with _indiv.p suffix
+                    print "Found individual data: " + current_pickle+"_indiv.p"
+                    ida_p = load_new_pickles_da(current_pickle,"_indiv.p")
+                    #ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
+                    ida = ida_p
+                    found_something = True
+                elif os.path.isfile(current_pickle+".p"): #try with no suffix
+                    print "Found individual data: " + current_pickle+".p"
+                    ida_p = load_new_pickles_da(current_pickle,".p")
+                    #ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
+                    ida=ida_p
+                    found_something = True
+                else:
+                    print "No individual data found!"
             
             if os.path.isfile(current_pickle+"_binned.p"): #look for binned
                 print "Found binned data: "+current_pickle+"_binned.p"
@@ -217,8 +225,29 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             if found_something == False:
                 print "ALERT! No data was found!"
                 current_pickle = "NONE"
-                    
-        
+    elif top_level_menu_choice == "PX": #aux pickle 
+        found_something = False
+        while found_something == False:
+            (changed,current_pickle) = change_pickle(current_pickle)
+            if changed == False:
+                break
+            #delete current
+            if 'bda_aux' in locals():
+                del bda_aux
+            if os.path.isfile(current_pickle+"_binned.p"): #look for binned
+                print "Found binned data: "+current_pickle+"_binned.p"
+                bda_aux = load_new_pickles_da(current_pickle,"_binned.p")
+                
+                found_something = True       
+            else:
+                print "No binned data detected!"
+            if found_something == False:
+                print "ALERT! No data was found"
+            else:
+                #Now, let's try and match up a dataset
+                bda = bda_add_frombda(bda,bda_aux)
+            
+            
     elif top_level_menu_choice == "E": #change emissions
         (changed,current_geosfolder) = change_emfiles(current_geosfolder)
         #currently no loading of the emisisons files are done here

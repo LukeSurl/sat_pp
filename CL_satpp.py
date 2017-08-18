@@ -2731,5 +2731,50 @@ def enter_date(prompt='date in YYYY-MM-DD format ->'):
 #   lat = dataset.createDimension('lat', num_lats)
 #   lon = dataset.createDimension('lon', num_lons)
    
-   
+def bda_add_frombda(bda_old,bda_new):
+    bda_old_len = len(bda_old.lat)
+    bda_new_len = len(bda_new.lat)
     
+    d_menu_title = "Which dataset do you wish to bring in? Quit to return to main menu"
+    [d_menu_text,d_answers_dict] = bda_new.make_menu()
+    d_menu_choice = basic_menu(d_menu_title,
+                            d_menu_text,
+                            quit_option=True)
+    if d_menu_choice == "Z":
+        return(bda_old)
+    else:
+        d_key =      d_answers_dict[d_menu_choice] 
+    
+    if d_key not in bda_new.data:
+        print "%s not a variable in new dataset" %d_key
+        _ = raw_input("Press enter to continue -->")
+        return(bda_old)
+    
+    new_vals = np.array([])
+    for i in range(bda_old_len):
+    
+        if (i+1)%100 == 0: #ticker
+            print "%i of %i" %(i+1,bda_old_len)
+            
+        lat_to_find = bda_old.lat[i]
+        lon_to_find = bda_old.lon[i]
+        new_index = [j for j in range(bda_new_len) if bda_new.lat[j] == lat_to_find and bda_new.lon[j] == lon_to_find]
+        if new_index == []:
+            new_val = np.nan
+            print "nan at point %i" %i
+        elif len(new_index) > 1:
+            print "Multiple lat/lon matches, this shouldn't happen!"
+            new_val = np.nan
+        else:
+            new_val = bda_new.data[d_key].val[new_index[0]]
+        new_vals = np.append(new_vals,new_val)
+    
+    print new_vals
+    
+    bda_old.add_data(d(list(new_vals),d_key+"_aux",description=bda_new.data[d_key].description+"_aux"))
+        
+    bda_old.data[d_key+"_aux"].unit = bda_new.data[d_key].unit 
+
+           
+    print "%s added" %d_key+"_aux"   
+    return(bda_old)

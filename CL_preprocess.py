@@ -16,6 +16,7 @@ import copy
 from CL_satpp import box,d,d_all,add_slash,clearscreen,basic_menu,geo_select_rectangle_i,enter_date
 from CL_run_management import run_select,new_run,change_dates
 from pacific_offline import pacific_ol
+from grain import Grain
 #from CL_omi_matchup import match_BRUG
 
 #Tools to filter satellite observational data.
@@ -39,11 +40,14 @@ def preprocessing(base_dir=None,run_name=None):
         #set to current dir if none supplied
         base_dir=os.path.dirname(os.path.realpath(__file__))
     
+    species = None
     while True: #break to exit
         clearscreen()
+        
         print "Pre-processing"
         print "Current top-level directory: %s" %base_dir
         print "Currently selected run     : %s" %run_name
+        print "Currently selected species : %s" %species
         print "[D] Change top-level directory"       
         if run_name == None:
             print "[R] Select a run in this directory"
@@ -96,9 +100,10 @@ def preprocessing(base_dir=None,run_name=None):
                 print "Need to select a valid top-level directory first"
                 _ = raw_input("Press enter to continue-->")
                 continue
-            (valid,new_run_name)=new_run(base_dir=base_dir)
+            (valid,new_run_name,new_species)=new_run(base_dir=base_dir)
             if valid:
                 run_name=new_run_name
+                species=new_species
             else:
                 _ = raw_input("Run setup failed. Press enter to continue-->")
             continue
@@ -117,15 +122,15 @@ def preprocessing(base_dir=None,run_name=None):
         date_list   = pickle.load(open(os.path.join(base_dir,run_name,"date_list.p"),"rb"))
                     
         if option == "1":
-            download_sat(base_dir,run_name,main_pacific="main")
+            download_sat(base_dir,run_name,main_pacific="main",species=species)
             continue
         
         if option == "2":
-            download_sat(base_dir,run_name,main_pacific="pacific")
+            download_sat(base_dir,run_name,main_pacific="pacific",species=species)
         
         
         if option == "3":
-            date_dos = assemble_sat_data(sat_main,date_list,p1,amf_input)
+            date_dos = assemble_sat_data(sat_main,date_list,p1,amf_input,species=species)
             
             print "Enter AMF calculator directory"
             amf_run_dir = os.path.join(base_dir,"amf581g/")
@@ -134,7 +139,7 @@ def preprocessing(base_dir=None,run_name=None):
             if amf_run_dir_in !=  "":
                 amf_run_dir = amf_run_dir_in
                       
-            write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main)
+            write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main,species=species)
             continue
         
         if option == "3A":
@@ -279,15 +284,21 @@ def preprocessing(base_dir=None,run_name=None):
             run_dir = add_slash(os.path.join(base_dir,run_name))
             change_dates(run_dir)
 
-def download_sat(base_dir,run_name,main_pacific):
+def download_sat(base_dir,run_name,main_pacific,species="HCHO"):
     clearscreen()
+    if species == "HCHO":
+        keyword = "omhcho"
+    elif species == "NO2":
+        keyword = "omno2"
+    else:
+        keyword = "*NONFATALERROR*"
     print "Data cannot be automatically downloaded using this script"
     print "Downloading instructions for %s satellite data:" %main_pacific
     print "1: Go to http://mirador.gsfc.nasa.gov/"
     if main_pacific=="main":
-        print "2: Use the keyword 'omhcho', and select the desired spatial and temporal bounds for the area/time of interest"
+        print "2: Use the keyword '%s', and select the desired spatial and temporal bounds for the area/time of interest" %keyword
     elif main_pacific=="pacific":
-        print "2: Use the keyword 'omhcho', choose the spatial bounds (-90,-180),(90,-120), and the desired temporal bounds"
+        print "2: Use the keyword '%s', choose the spatial bounds (-90,-180),(90,-120), and the desired temporal bounds" %keyword
     print "3: Click 'Search GES-DISC'"
     print "4: Select the top check-box and click 'Add Selected Files To Cart'"
     print "5: Click 'Continue to Cart'"
@@ -300,12 +311,18 @@ def download_sat(base_dir,run_name,main_pacific):
     _ = raw_input("Press enter to continue-->")
 
 
-def OMI_from_HDF(HDF_file):
+def OMI_from_HDF(HDF_file,species="HCHO"):
     """Returns various sets of data from an OMI HCHO file as lists"""
      
     #shorthands
-    df = HDF_file['HDFEOS']['SWATHS']['OMI Total Column Amount HCHO']['Data Fields']
-    gf = HDF_file['HDFEOS']['SWATHS']['OMI Total Column Amount HCHO']['Geolocation Fields']
+    if species == "HCHO":
+        df = HDF_file['HDFEOS']['SWATHS']['OMI Total Column Amount HCHO']['Data Fields']
+        gf = HDF_file['HDFEOS']['SWATHS']['OMI Total Column Amount HCHO']['Geolocation Fields']
+    elif species == "NO2":
+        df = HDF_file['HDFEOS']['SWATHS']['ColumnAmountNO2']['Data Fields']
+        gf = HDF_file['HDFEOS']['SWATHS']['ColumnAmountNO2']['Geolocation Fields']
+    else:
+        raise ValueError("OMI_from_HDF called with invalid species option")        
     
     (n_scans,n_tracks) = gf['Latitude'].shape #shape of the data
     
@@ -315,11 +332,26 @@ def OMI_from_HDF(HDF_file):
     
     #time is a little fiddly
     time = []
-    for scan in range(0,n_scans):
-        [year,month,day,hour,minute,second] = list(gf['TimeUTC'][scan])
-        for track in range(0,n_tracks):
-            time.append(dt(year,month,day,hour,minute,second))
-    
+    #old method of taking UTC time from file
+    if species == "HCHO": #this file has UTC time
+        for scan in range(0,n_scans):
+            [year,month,day,hour,minute,second] = list(gf['TimeUTC'][scan])
+            for track in range(0,n_tracks):
+                time.append(dt(year,month,day,hour,minute,second))
+    else: #NO2 this file only has TAI-93 time
+        #time in units of seconds since 1993-01-01 00:00:00
+        for scan in range(0,n_scanes):
+            time_utc = TAI93_to_UTC(gf['Time'][scan])
+            
+            #round to nearest second (microsecond info will be discarded)
+            if time_utc.microsecond >= 500000:
+                time_utc = time_utc + td(seconds=1)  
+            else:
+                pass
+                
+           for track in range(0,n_tracks): #assign same time to each of the simultanous pixels
+                time.append(dt(time_utc.year,time_utc.month,time_utc.day,time_utc.hour,time_utc.minute,time_utc.second))
+        
     #scan and row/track identifiers
     scan_n_list = []
     track_n_list = []
@@ -350,55 +382,101 @@ def OMI_from_HDF(HDF_file):
     VZA.unit = u"\u00b0" #degree sign
     
     
-    #HCHO measurements
+    #Column measurements
+    
+    if species == "HCHO": #HCHO columns    
+        #NASA files, unhelpfully, do not report the slant columns.
+        #Instead, they report the Vertical Column worked out from their AMF
+        #However, they also report their AMF, so we can easily undo the AMF
+        #and get the slant columns
+        #Also treat uncertainty the same wat
+        CA  = np.array(df['ColumnAmount']).flatten()
+        DCA= np.array(df['ColumnUncertainty']).flatten()
+        NASA_AMF = np.array(df['AirMassFactor']).flatten()
         
-    #NASA files, unhelpfully, do not report the slant columns.
-    #Instead, they report the Vertical Column worked out from their AMF
-    #However, they also report their AMF, so we can easily undo the AMF
-    #and get the slant columns
-    #Also treat uncertainty the same wat
-    CA  = np.array(df['ColumnAmount']).flatten()
-    DCA= np.array(df['ColumnUncertainty']).flatten()
-    NASA_AMF = np.array(df['AirMassFactor']).flatten()
+        SC = d(
+               list(CA),
+               "SC",description="Slant Column Amount")
+        SC.unit = "molec/cm2"
+        DSC= d(
+               list(DCA),
+               "DSC",description="Slant Column Uncertainty")
+        DSC.unit = "molec/cm2"
+        
+        #it may also be useful to get the final VC here, even though we'll
+        #calculate our own
+        
+        NASA_VC = d(
+                    list(np.array(df['ReferenceSectorCorrectedVerticalColumn']).flatten()),
+                    "Vertical Column (NASA)",
+                    description="Vertical Column (as calulated in OMHCHO)")
+        NASA_VC.unit = "molec/cm2"
     
-    SC = d(
-           list(CA),
-           "SC",description="Slant Column Amount")
-    SC.unit = "molec/cm2"
-    DSC= d(
-           list(DCA),
-           "DSC",description="Slant Column Uncertainty")
-    DSC.unit = "molec/cm2"
+    elif species == "NO2":
+        #for OMNO2 it's a little easier
+        SC = d(
+               list(np.array(df['SlantColumnAmountNO2Destriped']).flatten(),
+               "SC",description="Slant Column Amount NO2")
+        #using the destriped product as recommended.
+        SC.unit = "molec/cm2"
+        
+        DSC= d(
+               list(np.array(df['SlantColumnAmountNO2Std']).flatten(),
+               "DSC",description="Slant Column NO2 Uncertainty")
+        DSC.unit = "molec/cm2"
+        
+        #grab the NASA tropospheric VC
+        NASA_VC = d(
+                    list(np.array(df['ColumnAmountNO2Trop']).flatten()),
+                    "Vertical Column (NASA)",
+                    description="Vertical Tropospheric NO2 Column (as calulated in OMNO2)")
+        NASA_VC.unit = "molec/cm2"        
     
-    #it may also be useful to get the final VC here, even though we'll
-    #calculate our own
-    
-    NASA_VC = d(
-                list(np.array(df['ReferenceSectorCorrectedVerticalColumn']).flatten()),
-                "Vertical Column (NASA)",
-                description="Vertical Column (as calulated in OMHCHO)")
-    NASA_VC.unit = "molec/cm2"
     
     #Cloud info
     #Cloud infomation is taken from OMCLDO2 product
-    cloud_fraction = d(
-                       list(np.array(df['AMFCloudFraction']).flatten()),
-                       "cloud fraction",
-                       description="Cloud fraction from OMCLDO2")
-    cloud_pressure = d(
-                       list(np.array(df['AMFCloudPressure']).flatten()),
-                       "cloud top pressure",
-                       description="Cloud-top pressure from OMCLDO2")
-    cloud_pressure.unit = "hPa"
-                       
+    #the field names are different in OMHCHO and OMNO2
+    
+    if species == "HCHO":
+    
+        cloud_fraction = d(
+                           list(np.array(df['AMFCloudFraction']).flatten()),
+                           "cloud fraction",
+                           description="Cloud fraction from OMCLDO2")
+        cloud_pressure = d(
+                           list(np.array(df['AMFCloudPressure']).flatten()),
+                           "cloud top pressure",
+                           description="Cloud-top pressure from OMCLDO2")
+        cloud_pressure.unit = "hPa"
+    
+    elif species == "NO2":
+        cloud_fraction = d(
+                           list(np.array(df['CloudFraction']).flatten()),
+                           "cloud fraction",
+                           description="Cloud fraction from OMCLDO2")
+        cloud_pressure = d(
+                           list(np.array(df['CloudPressure']).flatten()),
+                           "cloud top pressure",
+                           description="Cloud-top pressure from OMCLDO2")
+        cloud_pressure.unit = "hPa"    
+                           
     
     #Quality flags
-    main_data_quality_flag = d(
-                                list(np.array(df['MainDataQualityFlag']).flatten()),
-                                "main data quality flag")
-    Xtrack_flag = d(
-                    list(np.array(gf['XtrackQualityFlags']).flatten()),
-                    "Xtrack quality flag")
+    #again, different in the two files
+    if species == "HCHO":
+        main_data_quality_flag = d(
+                                    list(np.array(df['MainDataQualityFlag']).flatten()),
+                                    "main data quality flag")
+        Xtrack_flag = d(
+                        list(np.array(gf['XtrackQualityFlags']).flatten()),
+                        "Xtrack quality flag")
+    elif species == "NO2":
+        main_data_quality_flag = d(
+                                    list(np.array(df['VcdQualityFlags']).flatten()),
+                                    "VCD quality flag")
+        Xtrack_flag = d(
+                        list(np.array(gf['XtrackQualityFlags']).flatten()),
+                        "Xtrack quality flag")        
     
     
     
@@ -526,10 +604,15 @@ def check_HDFs_in_directory(directory,HDF_type="OMHCHO"):
         
     return(files,dates_of_files)
     
-def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save):
+def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save,species="HCHO"):
     """Initial reading of satellite data"""
-    (HDF_files,dates_of_files) = check_HDFs_in_directory(sat_directory)
-    
+    if species = "HCHO":
+        (HDF_files,dates_of_files) = check_HDFs_in_directory(sat_directory,HDF_type="OMHCHO")
+    elif species = "NO2":
+        (HDF_files,dates_of_files) = check_HDFs_in_directory(sat_directory,HDF_type="OMNO2")
+    else:
+        raise ValueError("Call to assemble_sat_data with invalid species option")
+        
     start_date = min(date_list)
     end_date = max(date_list)
     
@@ -563,7 +646,7 @@ def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save):
         #print this_day_HDF_files
         these_OMIs = []
         for H in this_day_HDF_files:
-            these_OMIs.append(OMI_from_HDF(h5py.File(H)))
+            these_OMIs.append(OMI_from_HDF(h5py.File(H),species=species))
         #print these_OMIs
         this_day_OMI = merge_OMI(these_OMIs,do_daylist=False)
         del these_OMIs
@@ -617,14 +700,19 @@ def YYYYMMDD_sub(date,string,overwrite_year=0):
     string = string.replace("DD",DD)
     return(string)
     
-def write_bsub(date_dos,AMF_rundir,AMF_input,AMF_output,geos_main):
+def write_bsub(date_dos,AMF_rundir,AMF_input,AMF_output,geos_main,species="HCHO"):
     """writes a shell script that can be executed to do AMF processing in parallel"""
     #fixed variables
     
     GEOS_ND51_files = '%sts_satellite_omi.YYYYMMDD.bpch' %geos_main
     AMF_inputs = add_slash(AMF_input) + "YYYY-MM-DD_for_AMF.csv"
     bsub_stuff = 'bsub -q short-serial -o %s/log-YYYYMMDD.log -J amf-YYYYMMDD -W 2:00' %AMF_output
-    output_location = '%sYYYYMMDD_amfs.hcho' %AMF_output
+    if species=="HCHO":
+        output_location = '%sYYYYMMDD_amfs.hcho' %AMF_output
+    elif species=="NO2":
+        output_location = '%sYYYYMMDD_amfs.no2' %AMF_output
+    else:
+        raise ValueError("invalid species option in write_bsub")
     outfile = open(add_slash(AMF_input)+"batch_jobs.sh",'w')
     outfile.write("#!/bin/bash\n")
     outfile.write("cd "+AMF_rundir+"\n")
@@ -818,6 +906,9 @@ def prep_satellite_slants(date_list,p1,save_dir):
     num_pre_filter = len(OMI_all.lat)
     print "Data points prior to filter: %i" %num_pre_filter
     filter_i = []
+
+    dcf = raw_input("Do cloud filtering Y/N?").upper()
+
     for i in range(0,num_pre_filter):
     
         if OMI_all.data["main data quality flag"].val[i] != 0 :
@@ -829,9 +920,10 @@ def prep_satellite_slants(date_list,p1,save_dir):
         if OMI_all.data["SZA"                   ].val[i] > 70.:
             filter_i.append(False)
             continue
-        if OMI_all.data["cloud fraction"        ].val[i] > 0.4 :
-            filter_i.append(False)
-            continue
+        if dcf == "Y":
+            if OMI_all.data["cloud fraction"        ].val[i] > 0.4 :
+                filter_i.append(False)
+                continue
         #if np.isnan(ida.data["sat_VC"       ].val[i]):
         #    #AMF or pacific correction failed here
         #    filter_i.append(False)
@@ -1221,9 +1313,11 @@ def get_BRUG(date_list,this_box):
             
 def TAI93_to_UTC(TAI93):
     """converts a TAI93 timestamp to a datetime object"""
-    #Doesn't account for leap seconds stuff, so +/- a few seconds may be necessary
+    #Using Grain module to convert, accounting for leap seconds.
     tai_epoch = dt(1993,1,1,0,0,0)
-    return(tai_epoch+td(seconds=TAI93))
+    g=Grain()
+    
+    return(g.tai2utc(TAI93,epoch=tai_epoch)
 
 
 def OMI_BRUG_from_HDF(HDF_file,this_box=None):
