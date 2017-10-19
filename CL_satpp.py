@@ -501,10 +501,10 @@ def calc_statistic(dataset,stat_choice):
     elif stat_choice == "3": #count
         return np.count_nonzero(~np.isnan(dataset))
     elif stat_choice == "4": #percentiles
-        return np.percentile(dataset,range(0,101))
+        return np.nanpercentile(dataset,range(0,101))
         
     
-def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2"):
+def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2",do_labels=False):
     choice = "xx"    
     if title == "":
         title = dataset_name
@@ -517,10 +517,15 @@ def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2"):
         print "Colourbar minimum = %g" %vmin
         print "Colourbar maximum = %g" %vmax
         print "Units text        = %s" %unit
+        if do_labels:
+            print "Label lat+lon     = True"
+        else:
+            print "Label lat+lon     = False"
         print "OPTIONS:"
         print "[T] Change title"
         print "[C] Change colourbar min/max"
         print "[U] Change units text"
+        print "[L] Switch lat+lon label option"
         print "[P] Plot figure on screen"
         print "[S] Save figure."
         print "[Z] Return to previous menu"
@@ -536,7 +541,9 @@ def map_preplot_menu(dataset_name,title="",vmin=0.,vmax=3.e16,unit="molec/cm2"):
         if choice.upper() == "S":
             save_filename = title + ".png"
             save_filename = change_var(save_filename,"Image filename to save (include extension)")
-    return(choice.upper(),title,vmin,vmax,unit,save_filename)
+        if choice.upper() == "L":
+            do_labels = not(do_labels)
+    return(choice.upper(),title,vmin,vmax,unit,save_filename,do_labels)
     
 def geo_select_menu(type_geo_select,geo_selection):
 
@@ -814,7 +821,7 @@ def draw_screen_poly( rec_lats, rec_lons, m, c, color_index,colmap ):
     poly = Polygon( xy, facecolor=rainbow(this_col), edgecolor='none', alpha=1.0 )
     plt.gca().add_patch(poly)
     
-def prepare_map(map_box,boundary=0.1):
+def prepare_map(map_box,boundary=0.1,labels=False):
     """Creates a basemap object ready for plotting"""
     m = Basemap(projection='merc',
             llcrnrlat=map_box.s-boundary,urcrnrlat=map_box.n+boundary,
@@ -837,11 +844,15 @@ def prepare_map(map_box,boundary=0.1):
     #Draw lines
     m.drawcoastlines()
     m.drawcountries(linewidth=0.25)
-    m.drawparallels(np.arange(-90.,90.,gl_spacing),labels=[True,False,False,False])
-    m.drawmeridians(np.arange(-180.,181.,gl_spacing),labels=[False,False,False,True]) 
+    if labels:
+        m.drawparallels(np.arange(-90.,90.,gl_spacing),labels=[True,False,False,False])
+        m.drawmeridians(np.arange(-180.,181.,gl_spacing),labels=[False,False,False,True]) 
+    else:
+        m.drawparallels(np.arange(-90.,90.,gl_spacing),labels=[False,False,False,False])
+        m.drawmeridians(np.arange(-180.,181.,gl_spacing),labels=[False,False,False,False]) 
     return m
     
-def free_colorbar(vmin,vmax,label="no label selected",colmap=None):
+def free_colorbar(vmin,vmax,label="no label selected",colmap=None,logplot=False):
     #if coltype == "bwr":
     #    cols_for_bar = [[0.,0.,1.],[1.,1.,1.],[1.,0.,0.]]
     #elif coltype == "lg-dg":
@@ -855,17 +866,23 @@ def free_colorbar(vmin,vmax,label="no label selected",colmap=None):
     cols_for_bar = colmap.mpl_colors        
     #can add in more cols_for_bar options here.
     cm1 = colors.LinearSegmentedColormap.from_list("MyCmapName",cols_for_bar)
-    cnorm = colors.Normalize(vmin=vmin,vmax=vmax)
+    if logplot:
+        cnorm = colors.LogNorm(vmin=vmin,vmax=vmax)
+    else:
+        cnorm = colors.Normalize(vmin=vmin,vmax=vmax)
     cpick = cm.ScalarMappable(norm=cnorm,cmap=cm1)
     cpick.set_array([])
     plt.colorbar(cpick,label=label)
 
 def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=0.0e16,vmax=3.0e16,lab="HCHO column molec/cm2",
                         save=False,save_filename="nofilenamespecified",
-                        colmap=None,do_plot=True):
+                        colmap=None,do_plot=True,labels=False,logplot=False):
     #Define basemap
-    m = prepare_map(map_box)
-    color_index = colors.Normalize(vmin,vmax)
+    m = prepare_map(map_box,labels=labels)
+    if logplot:
+        color_index = colors.LogNorm(vmin=vmin,vmax=vmax)
+    else:
+        color_index = colors.Normalize(vmin,vmax)
     #(lat,lon,var) = stripallnans(lat,lon,var) #cut out nan values (stops crashes)    
     for i in range(0,len(lat)):
         this_w = lon[i]-xdim/2
@@ -877,7 +894,7 @@ def plot_grid_from_list(lat,lon,var,xdim,ydim,map_box,title="Unnamed plot",vmin=
             continue #don't plot if there's no data
         draw_screen_poly( [this_s,this_n,this_n,this_s],[this_w,this_w,this_e,this_e], m, this_c, color_index, colmap )        
     plt.title(title)
-    free_colorbar(vmin,vmax,label=lab,colmap=colmap)
+    free_colorbar(vmin,vmax,label=lab,colmap=colmap,logplot=logplot)
     fig = plt.gcf()
     if save:    
         fig.savefig(save_filename, dpi=600)
@@ -1142,10 +1159,20 @@ def binner(lat,lon,vals,map_box,stat="mean",xdim=0.3125,ydim=0.25,do_extras=Fals
             range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
             expand_binnumbers=True)
     elif stat == "combined measurement error": #error in mean
-        (binned_stat,xedges,yedges,binnumber) = \
-            scistats.binned_statistic_2d(lon,lat,vals,get_meanerr,bins=[num_xbins,num_ybins],
+        #(binned_stat,xedges,yedges,binnumber) = \
+        #    scistats.binned_statistic_2d(lon,lat,vals,get_meanerr,bins=[num_xbins,num_ybins],
+        #    range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
+        #    expand_binnumbers=True)            
+        qvals = list(np.multiply(vals,vals))
+        (binned_stat_q,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,qvals,np.nansum,bins=[num_xbins,num_ybins],
             range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
-            expand_binnumbers=True)            
+            expand_binnumbers=True)
+        (binned_stat_c,xedges,yedges,binnumber) = \
+            scistats.binned_statistic_2d(lon,lat,vals,notnancount,bins=[num_xbins,num_ybins],
+            range=[[map_box.w-xdim/2,map_box.w+(num_xbins-1)*xdim+xdim/2],[map_box.s-ydim/2,map_box.s+(num_ybins-1)*ydim+ydim/2]],
+            expand_binnumbers=True)
+        binned_stat = np.divide(np.sqrt(binned_stat_q),binned_stat_c)
     
     #can also work out lats, lons and index map of bins.
     #As this function is run several times, and these data would be the same
@@ -1941,7 +1968,7 @@ def straighten_geos(geos_chem_var,time_option):
     return(lat1D,lon1D,data1D)
 
             
-def plot_geos_chem(geos_chem_var_dict):
+def plot_geos_chem(geos_chem_var_dict,colmap):
     """Plots GEOS Chem data using plt_grid_from_list"""
     clearscreen()
     valid_input = False
@@ -1982,7 +2009,8 @@ def plot_geos_chem(geos_chem_var_dict):
                         title=geos_chem_var.human_name,
                         vmin=min(data1D),vmax=max(data1D),
                         lab=geos_chem_var.unit,
-                        save=False,save_filename="nofilenamespecified")
+                        save=False,save_filename="nofilenamespecified",
+                        colmap=colmap)
 
 def stats_from_da(da):
     """calculate simple stats from a data_all object"""
@@ -2124,7 +2152,7 @@ def bin_extra(ida,bda):
         while True: #allow for break to exit   
             be2_menu_title = "Which statistical operator do you want to compute for each bin?"
             be2_menu_text=[["1","mean"],
-                           ["2","standard deviation"],
+                           ["2","stdev"],
                            ["3","count"],
                            ["4","combined measurement error"]]
             be2_menu_choice= basic_menu(be2_menu_title,
@@ -2650,7 +2678,9 @@ def simple_maths(xda):
     sm_menu_text=[["1","A + B"],
                   ["2","A - B"],
                    ["3","A * B"],
-                   ["4","A / B"]]
+                   ["4","A / B"],
+                   ["5","A + number"],
+                   ["6","A * number"]]
     sm_menu_choice= basic_menu(sm_menu_title,
                                 sm_menu_text,
                                 quit_option=True)
@@ -2667,16 +2697,21 @@ def simple_maths(xda):
     d1_var =      xda.data[d1_key].val
     d1_unit = xda.data[d1_key].unit
     
-    #Second dataset
-    d2_menu_title = "Select dataset B:"
-    [d2_menu_text,d2_answers_dict] = xda.make_menu()
-    d2_menu_choice = basic_menu(d2_menu_title,
-                                  d2_menu_text,
-                                  quit_option=False)
-    d2_key =      d2_answers_dict[d2_menu_choice]    
-    d2_var =      xda.data[d2_key].val
-    d2_unit = xda.data[d2_key].unit
-    
+    if sm_menu_choice in ["1","2","3","4"]:
+        #Second dataset
+        d2_menu_title = "Select dataset B:"
+        [d2_menu_text,d2_answers_dict] = xda.make_menu()
+        d2_menu_choice = basic_menu(d2_menu_title,
+                                      d2_menu_text,
+                                      quit_option=False)
+        d2_key =      d2_answers_dict[d2_menu_choice]    
+        d2_var =      xda.data[d2_key].val
+        d2_unit = xda.data[d2_key].unit
+    elif sm_menu_choice == ["5"]:
+        flat_num = input("Enter number to ADD to each datapoint")
+    else:
+        flat_num = input("Enter number to MULTIPLY each datapoint by")
+        
     #Perform operation
     if sm_menu_choice == "1":
         new_var = np.add(d1_var,d2_var)
@@ -2690,6 +2725,12 @@ def simple_maths(xda):
     elif sm_menu_choice == "4":
         new_var = np.divide(d1_var,d2_var)
         new_var_sname = d1_key+"_DIV_"+d2_key
+    elif sm_menu_choice == "5":
+        new_var = np.add(d1_var,flat_num)
+        new_var_sname = d1_key+"_PLUS_"+str(flat_num)
+    elif sm_menu_choice == "6":
+        new_var = np.multiply(d1_var,flat_num)
+        new_var_sname = d1_key+"_TIMES_"+str(flat_num)
     
     print "Operation successful"
     
@@ -2698,12 +2739,14 @@ def simple_maths(xda):
     while new_var_lname == "": #keep asking the question if a blank name is specified
         new_var_lname = raw_input("Type a name for this new field --> ")
     
-    if sm_menu_choice in ["1","2"]:
+    if sm_menu_choice in ["1","2","6"]:
         new_var_unit = d1_unit
     else:
         new_var_unit = raw_input("Type units for this new field --> ")
     
     #create object and add to container variable
+    
+    new_var_sname = "smo_"+new_var_lname #hack to avoid overwriting names
     
     d_obj = d(new_var,new_var_sname,description=new_var_lname)
     d_obj.unit = new_var_unit

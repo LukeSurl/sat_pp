@@ -73,6 +73,8 @@ else: #otherise, some default options
 #default colormap
 colmap = brewer2mpl.get_map("RdYlBu","Diverging", 6, reverse=True)
 
+#by default, don't do labels
+labels = False
 #==Loading data==
 #The main data sets for this utility are saved as pickles:
 #a) All the individual data (data for each sateliite pixel)
@@ -152,13 +154,14 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["2","Use individual observations data"],
             ["G","Geographically select data to use"],
             ["F","Filter indvidual data based on values"],
-            ["M","Filter down to a defined month"],
+            ["FB","Filter binned data based on values"],            
+            #["M","Filter down to a defined month"],
             ["S","Save current dataset as new pickle"],
             ["P","Change pickle"],
             ["PB","Load a binned pickle only"],
             ["PX","Load an 'auxillary' pickle (binned only)"],
             ["O","Create binned from individual data"],
-            ["C","Assign country/state to data"],
+            #["C","Assign country/state to data"],
             ["CF","Assign country/state to data FAST"],                        
             ["B","Bin additional datasets"],
             ["BI","Add binned data to individual data"],
@@ -325,7 +328,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         daily_fire_filter(ida,FIRE_file,startdate,enddate,map_box,xdim,ydim)
                 
     elif top_level_menu_choice == "K": #plot geos chem data
-        plot_geos_chem(geos_dict)
+        plot_geos_chem(geos_dict,colmap)
     
     elif top_level_menu_choice == "X": #change options
         if 'winter_flag' not in locals():
@@ -374,6 +377,9 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     
     elif top_level_menu_choice == "F": #values filtering
         ida = criteria_filtering(ida)
+        
+    elif top_level_menu_choice == "FB": #values filtering binned
+        bda = criteria_filtering(bda)        
     
     elif top_level_menu_choice == "M": #month filtering
         ida = only_months(ida)
@@ -434,13 +440,17 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     elif top_level_menu_choice == "S":
         print "Enter full path and filename for pickles to be saved to. '_binned.p' and '_2.p' suffixes will be appended automatically:"
         save_path = raw_input("-->")
-   
-        save_pickle(ida,save_path=save_path,suffix="_2.p")
-        ida_p = copy.deepcopy(ida) #update the static store
+        try:
+            save_pickle(ida,save_path=save_path,suffix="_2.p")
+        except NameError: #ida doesn't exist
+            print "No indiv data to save"
+            pass                        
+        
         try:
             save_pickle(bda,save_path=save_path,suffix="_binned.p")
-            bda_p = copy.deepcopy(bda) #update the static store
+
         except NameError: #bda doesn't exist
+            print "No binned data to save"
             pass
         current_pickle = save_path
     
@@ -455,6 +465,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ubd_menu_title = "USING BINNED DATA"
             ubd_menu_text  = [
                 ["1","Plot gridded data on map"],
+                ["1L","Plot gridded data on map - log scale"],
                 ["2","Compute basic statistics"],
                 ["3","Compare datasets"],
                 ["4","Simple mathematical operations"],
@@ -466,7 +477,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                          ubd_menu_text,
                                          quit_option="True")
                    
-            if ubd_menu_choice == "1": #Binned map menu (bmm)
+            if ubd_menu_choice in ["1","1L"]: #Binned map menu (bmm)
                 while True:                    
                     os.system('clear')
                     
@@ -480,11 +491,11 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     if bmm_menu_choice != "Z": #unless we're quitting
                         data_key = bmm_answers_dict[bmm_menu_choice]                     
                         
-                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) =\
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename,labels) =\
                             map_preplot_menu(bda.data[data_key].description,
                             vmin=np.nanmin(bda.data[data_key].val),
                             vmax=np.nanmax(bda.data[data_key].val),
-                            unit=bda.data[data_key].unit)
+                            unit=bda.data[data_key].unit,do_labels=labels)
                     else: #go up a menu
                         break
                     
@@ -494,10 +505,15 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                     #At this point binned_map_preplot_menu_choice will be P (plot) or S (save)                    
                     do_save = map_preplot_menu_choice.upper() == "S" #saving the figure?
                     
+                    if ubd_menu_choice == "1L":
+                        logplot = True
+                    else:
+                        logplot = False
                     plot_grid_from_list(bda.lat,bda.lon,bda.data[data_key].val,
                                         bda.meta["Binning dimensions"][0],bda.meta["Binning dimensions"][1],
                                         map_box,title=title,vmin=vmin,vmax=vmax,lab=unit,
-                                        save=do_save,save_filename=save_filename,colmap=colmap)
+                                        save=do_save,save_filename=save_filename,colmap=colmap,
+                                        logplot=logplot)
                     break
             
             #bda-ification done to this point
@@ -550,8 +566,8 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                                                  quit_option=True)
                     if dom_menu_choice != "Z": #unless we're quitting
                         data_key = dom_answers_dict[dom_menu_choice]
-                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename) = \
-                            map_preplot_menu(ida.data[data_key].description,unit=ida.data[data_key].unit)                  
+                        (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename,labels) = \
+                            map_preplot_menu(ida.data[data_key].description,unit=ida.data[data_key].unit,do_labels=labels)                  
                         if   map_preplot_menu_choice.upper() == "S": #saving the figure
                             plot_dots_on_map(ida.lat,ida.lon,ida.data[data_key].val,map_box,vmin=vmin,vmax=vmax,title=title,lab=unit,save=True,save_filename=save_filename)
                         elif map_preplot_menu_choice.upper() == "P": #plotting the figure
@@ -640,7 +656,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 #print len(ida.lat)
                 #raw_input("halt-->")
                 
-                os_data = oversample(ida)
+                os_data = oversample(ida,colmap)
                 save_location = raw_input("Dump this data as a pickle? Enter full path or press enter to skip this-->")
                 if save_location != "":
                     cPickle.dump(os_data,open(save_location,"wb"))

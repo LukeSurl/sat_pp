@@ -67,14 +67,15 @@ def new_run(base_dir=None,run_name=None,sat_main=None,sat_pacific=None,geos_main
     #define dates
     change_dates(run_dir)
     
+    species = "HCHO"
     
     #choose species
-    species=""
-    while species not in ["HCHO","NO2"]:
-        species = raw_input("Enter species:\n[HCHO]\n[NO2]\n-> ").upper()
-    species_file = open(run_dir+"species.txt")
-    species_file.write(species)
-    species_file.close()   
+    #species=""
+    #while species not in ["HCHO","NO2"]:
+    #    species = raw_input("Enter species:\n[HCHO]\n[NO2]\n-> ").upper()
+    #species_file = open(run_dir+"species.txt")
+    #species_file.write(species)
+    #species_file.close()   
             
     #create directories and subdirectories
     

@@ -27,7 +27,7 @@ class os_data:
         self.meta[key] = value
     
 
-def oversample(ida):
+def oversample(ida,colmap):
     """User interface for the oversampler"""
     
     #ida = copy.deepcopy(use_ida) #avoid memory issue.
@@ -247,9 +247,10 @@ def oversample(ida):
         plot_grid_from_list(lat_fine,lon_fine,var_fine,
                             fine_dim,fine_dim,
                             view_box,
-                            title="Oversampled plot",vmin=0.0e16,vmax=2.0e16,
-                            lab=os_var_name,
-                            save=True,save_filename="/home/users/lsurl/CL/%fN-%fN--%fE-%fE--oversample.png"%(south_view,north_view,west_view,east_view))
+                            title="",vmin=0.2,vmax=1.2,
+                            lab="10$^{15}$ molec/cm$^2$",
+                            save=True,save_filename="/home/users/lsurl/CL/%fN-%fN--%fE-%fE--oversample_newcbar.png"%(south_view,north_view,west_view,east_view),
+                            colmap=colmap, do_plot=True,labels=True)
 
         #plot_grid_from_list(lat_fine,lon_fine,var_fine_count,
         #                    fine_dim,fine_dim,

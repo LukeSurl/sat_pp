@@ -60,8 +60,10 @@ def preprocessing(base_dir=None,run_name=None):
             print "[3] Extract data from main satellite files and generate input for AMF calculator"
             print "[3a] Write bsub file only"
             print "[3b] Extract data from BRUG satellite files and generate input for AMF calculator"
+            print "[3c] Extract data from BRUG GOME satellite files and generate input for AMF calculator"
             print "[4] Run AMF calculator"
-            print "[4b] Prepare slant-column only file"
+            print "[4b] Prepare OMI slant-column only file"
+            print "[4c] Prepare GOME slant-column only file"            
             print "[P] Calculate pacific correction"
             print "[5] Apply pacific correction to slant columns"
             print "[6] Read AMF output and calculate VCs"
@@ -169,6 +171,20 @@ def preprocessing(base_dir=None,run_name=None):
             write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main)
             continue
         
+        if option == "3C":
+            this_box = box(40.,0.,100.,65.)
+            date_dos  = GOME_from_BRUG(date_list,this_box,p1,amf_input)
+            
+            #print "Enter AMF calculator directory"
+            #amf_run_dir = os.path.join(base_dir,"amf581/")
+            #print "Press enter to use %s" %amf_run_dir          
+            #amf_run_dir_in = raw_input("-->")
+            #if amf_run_dir_in !=  "":
+            #    amf_run_dir = amf_run_dir_in
+            #          
+            #write_bsub(date_dos,amf_run_dir,amf_input,amf_output,geos_main)
+            continue    
+        
         if option == "4":
             print 'chmod +x %sbatch_jobs.sh' %amf_input
             os.system('chmod +x %sbatch_jobs.sh' %amf_input)
@@ -184,6 +200,9 @@ def preprocessing(base_dir=None,run_name=None):
         
         if option == "4B":
             prep_satellite_slants(date_list,p1,p4)
+            
+        if option == "4C":
+            prep_GOME_slants(date_list,p1,p4)            
         
         if option == "P":
             print "Pacific reference"
@@ -599,6 +618,9 @@ def check_HDFs_in_directory(directory,HDF_type="OMHCHO"):
             gf = f_HDF['HDFEOS']['SWATHS']['Geolocation Fields']
             this_date = dt(int(gf['Year'][0]),int(gf['Month'][0]),int(gf['Day'][0]),0,0,0)
             del gf
+        elif HDF_type=="BRUG_GOME":
+            gf_t= f_HDF['HDFEOS']['SWATHS']['GOME2B']['Geolocation Fields']['Date_YYMMDD']
+            this_date = this_date = dt(int(gf_t[0][0]),int(gf_t[0][1]),int(gf_t[0][2]),0,0,0)
         
         dates_of_files.append(this_date)
         
@@ -958,6 +980,84 @@ def prep_satellite_slants(date_list,p1,save_dir):
     save_path = join(save_dir,"slants_filtered_%s.p"%suffix)
     print "Saving as %s" %save_path
     cPickle.dump(OMI_all,open(join(save_path),"wb"))
+
+def prep_GOME_slants(date_list,p1,save_dir):
+
+    suffix = raw_input("suffix for filename-->")
+    #loop through days
+    daily_new_GOMEs = []
+    for date_clock in date_list :
+        print "Processing %s..." %date_clock.strftime("%Y-%m-%d")
+        #open this day's pickle
+        p1_path = p1 +"/" + date_clock.strftime("%Y-%m-%d")+"_GOME.p"
+        try:
+            GOME_in = pickle.load(open(p1_path,"rb"))
+        except IOError:
+            #file doesn't exist
+            print "File here does not exist!"
+            continue #go to next date
+        
+        daily_new_GOMEs.append(GOME_in)
+        del GOME_in
+        
+    print "Merging into one file..."
+    GOME_all  = merge_OMI(daily_new_GOMEs)
+    
+    print "Filtering..."
+    num_pre_filter = len(GOME_all.lat)
+    print "Data points prior to filter: %i" %num_pre_filter
+    filter_i = []
+
+    #dcf = raw_input("Do cloud filtering Y/N?").upper()
+    dcf = "Y"
+
+    for i in range(0,num_pre_filter):
+    
+        #if OMI_all.data["main data quality flag"].val[i] != 0 :
+        #    filter_i.append(False)
+        #    continue
+        #if OMI_all.data["Xtrack quality flag"   ].val[i] != 0 :
+        #    filter_i.append(False)
+        #    continue
+        if GOME_all.data["SZA"                   ].val[i] > 70.:
+            filter_i.append(False)
+            continue
+        if dcf == "Y":
+            if GOME_all.data["cloud fraction"        ].val[i] > 0.4 :
+                filter_i.append(False)
+                continue
+        #if np.isnan(ida.data["sat_VC"       ].val[i]):
+        #    #AMF or pacific correction failed here
+        #    filter_i.append(False)
+        #    continue
+        #if abs(OMI_all.data["DSC"].val[i]) > abs(OMI_all.data["SC"].val[i]*3):
+        #    filter_i.append(False)
+        #    continue
+        if abs(GOME_all.data["SC"].val[i]) > 1.5e17:
+            filter_i.append(False)
+            continue
+        #if we get this far, this data point has passed
+        filter_i.append(True)
+    #filter this data
+    GOME_all.filter_all(filter_i)
+
+    #add meta information about filtering
+    GOME_all.meta["Filtering criteria"] = \
+                "Solar zenity angle <= 70.\n"+\
+                "Cloud fraction <= 0.4\n"+\
+                "SC < 1.5e17"
+    GOME_all.meta["Filtering stats"] = \
+        {"Total datapoints":num_pre_filter,
+         "Retained datapoints":len(GOME_all.lat),
+         "Removed datapoints":num_pre_filter-len(GOME_all.lat)}
+    
+    print GOME_all.meta["Filtering stats"]     
+    
+    save_path = join(save_dir,"slants_filtered_%s.p"%suffix)
+    print "Saving as %s" %save_path
+    cPickle.dump(GOME_all,open(join(save_path),"wb"))
+
+
         
 def pacific_correction(in_p1s,base_dir,run_name):
     """Corrects the data using pacific measurements"""
@@ -1310,6 +1410,63 @@ def get_BRUG(date_list,this_box):
     #Let's just return it and see if we can play with the data somehow.
     
     return(BRUG)
+    
+def get_BRUG_GOME(date_list,this_box):
+    """For a particular pickle, brings in other OMI data from a particular directory"""
+    
+    #match_dir = raw_input("In which directory can BRUG data be found?-->")
+    match_dir = '/group_workspaces/cems2/nceo_generic/nceo_ed/BE_H2CO/GOME2b/YYYY/MM/DD/'
+    #ida is a d_all object containing all the HCHO data. No data has been removed for filtering.
+    
+    #get list of days covered by ida
+    
+    
+    #find all the HDF files
+    HDF_files = []
+    dates_of_files = []
+    for today in date_list:
+        today_match_dir = YYYYMMDD_sub(today,match_dir)
+        print "Checking for HDF files in %s" %today_match_dir
+        try:
+            (today_HDF_files,today_dates_of_files) = check_HDFs_in_directory(today_match_dir,HDF_type="BRUG_GOME")
+            HDF_files.extend(today_HDF_files)
+            dates_of_files.extend(today_dates_of_files)
+        except OSError:
+            print "%s cannot be accessed (may not exist)"%today_match_dir
+            pass
+    
+    #if no files return None
+    if HDF_files == []:
+        return None
+    
+    start_date = min(date_list)
+    end_date = max(date_list)
+    
+    i_to_keep = [i for i in range(0,len(dates_of_files)) 
+                 if dates_of_files[i] in date_list ]
+
+    HDF_files = [HDF_files[i] for i in i_to_keep]
+    dates_of_files = [dates_of_files[i] for i in i_to_keep]
+    
+    #extract information from BRUG
+    print "extracting information from BRUG"
+    BRUG_collection = []
+    for H in HDF_files:
+        print "Extracting from %s" %H
+        #this_BRUG = OMI_BRUG_from_HDF(h5py.File(H),this_box=this_box)
+        this_BRUG_GOME = GOME_BRUG_from_HDF(h5py.File(H),this_box=this_box)
+        #print (this_BRUG.lat)
+        #this_BRUG_nest = geo_select_rectangle_i(this_box,this_BRUG)
+        this_BRUG_nest = this_BRUG_GOME
+        BRUG_collection.append(copy.deepcopy(this_BRUG_nest))
+        del this_BRUG_GOME, this_BRUG_nest
+    print "Merging..."
+    BRUG = merge_OMI(BRUG_collection) #this should work for GOME
+    
+    #Directly associating this data seems like a bust.
+    #Let's just return it and see if we can play with the data somehow.
+    
+    return(BRUG)
             
 def TAI93_to_UTC(TAI93):
     """converts a TAI93 timestamp to a datetime object"""
@@ -1468,7 +1625,119 @@ def OMI_BRUG_from_HDF(HDF_file,this_box=None):
         #print geo_OK
         OMI_BRUG_all.filter_all(geo_OK)    
     
-    return(OMI_BRUG_all)                        
+    return(OMI_BRUG_all)
+    
+def GOME_BRUG_from_HDF(HDF_file,this_box=None):
+    """Returns various sets of data from an GOME BRUG file as lists"""
+     
+    #shorthands
+    df = HDF_file['HDFEOS']['SWATHS']['GOME2B']['Data Fields']
+    gf = HDF_file['HDFEOS']['SWATHS']['GOME2B']['Geolocation Fields']
+    
+    n = df['H2CO SCD'].shape[0] #len of the data
+    
+    
+    ##QF array - none for GOME2b ?!
+    #QF_array_bool = np.array(df['H2CO Errors']['QF']).flatten()  == 1
+    
+    #get simple location data 
+    #there are 5 lats for each data point in this file, just get the last one for centre
+    lat_5 = list(np.array(gf['Latitudes']).flatten())
+    lat=lat_5[4::5]
+
+    lon_5 = list(np.array(gf['Longitudes']).flatten())
+    lon=lon_5[4::5]
+
+    ##Now get the corners:
+    #lat_corners = []
+    #lon_corners = []
+    #for i in range(0,len(lat)):
+    #    lat_corners.append([lat_5[i*5+0],lat_5[i*5+1],lat_5[i*5+2],lat_5[i*5+3]])
+    #    lon_corners.append([lon_5[i*5+0],lon_5[i*5+1],lon_5[i*5+2],lon_5[i*5+3]])
+    #
+    #
+    #LAT_cor = d(lat_corners,"lat_corners",description="Pixel corner latitudes")
+    #LAT_cor.unit = u"\u00b0" #degree sign
+    #LON_cor = d(lon_corners,"lon_corners",description="Pixel corner longitudes")
+    #LON_cor.unit = u"\u00b0" #degree sign
+    #
+    ##scan and row/track identifiers
+    #scan_n_list = []
+    #track_n_list = []
+    #
+    #for scan in range(0,n_scans):
+    #    for track in range(0,n_tracks):
+    #        scan_n_list.append(scan)
+    #        track_n_list.append(track)
+    #
+    #scan_n  = d(scan_n_list,"scan",description="Scan number")
+    #track_n = d(track_n_list,"row",description="Row number")
+    #
+    
+    #print "time bit start..."
+    gf_d= gf['Date_YYMMDD']
+    gf_t= gf['Date_HHMMSS.MS']
+
+    time = []
+    for t in range(0,n):
+        time.append(dt(int(gf_d[0][0]),int(gf_d[0][1]),int(gf_d[0][2]),gf_t[0][0],int(gf_t[0][1]),int(gf_t[0][2])))
+    
+  
+    #Slant column
+    
+    slant = np.array(df['H2CO SCD']).flatten()
+    SC = d(
+            list(slant),
+            "SC",description="Slant column (BRUG)")
+    SC.unit = "molec/cm2"
+       
+    #Slant column errors
+    
+    SCE = np.array(df['H2CO SCDE']).flatten()
+    
+    DSC = d(
+            list(SCE),
+            "DSC",description="Slant column error (BRUG)")
+    DSC.unit = "molec/cm2"
+    
+       
+    #cloud fraction
+    CF = d(
+            list(np.array(df['CF']).flatten()),
+            "cloud fraction",description="cloud fraction")
+    CF.unit = "unitless"
+    
+    
+    
+    #SZA
+    SZA = d(
+            list(np.array(gf['SZA']).flatten()),
+            "SZA",description="solar zenith angle")
+    SZA.unit = "solar zenith angle"
+    
+    #VZA
+    VZA = d(
+            list(np.array(gf['VZA']).flatten()),
+            "VZA",description="viewing zenith angle")
+    VZA.unit = "viewing zenith angle"
+    
+    #day of file
+    file_date = dt(time[0].year,time[0].month,time[0].day)
+    
+      
+    GOME_BRUG_all = d_all(lat,lon,time=time)
+    GOME_BRUG_all.add_data([SC,DSC,CF,SZA,VZA])
+    GOME_BRUG_all.meta['day']=file_date
+    
+    if this_box != None: #if filtering by box
+        geo_OK = (np.array(GOME_BRUG_all.lat) < this_box.n) *\
+                 (np.array(GOME_BRUG_all.lat) > this_box.s) *\
+                 (np.array(GOME_BRUG_all.lon) < this_box.e) *\
+                 (np.array(GOME_BRUG_all.lon) > this_box.w)
+        #print geo_OK
+        GOME_BRUG_all.filter_all(geo_OK)    
+    
+    return(GOME_BRUG_all)
 
 def normal_from_BRUG(date_list,this_box,p1,amf_input):
     date_dos = []
@@ -1494,6 +1763,32 @@ def normal_from_BRUG(date_list,this_box,p1,amf_input):
         print "Writing AMF input: %s" %AMF_write_name 
         write_for_AMF(today_BRUG,add_slash(amf_input),AMF_write_name)
         
-    return(date_dos)        
+    return(date_dos)
+    
+def GOME_from_BRUG(date_list,this_box,p1,amf_input):
+    date_dos = []
+    for today_date in date_list:
+        today_BRUG = get_BRUG_GOME([today_date],this_box)
+        if today_BRUG == None:
+            date_dos.append([today_date,False])
+        else:
+            date_dos.append([today_date,True])
+        
+            #assign ULN
+            today_BRUG.add_data(d(range(0,len(today_BRUG.lat)),"ULN",description="Unique Line Number"))
+            
+            today_BRUG.meta["day"] = today_date
+            
+            #save day's GOMEs as pickle        
+            pickle_name = add_slash(p1)+today_date.strftime("%Y-%m-%d")+"_GOME.p"
+            print "Saving data as pickle: %s" %pickle_name
+            cPickle.dump(today_BRUG,open(pickle_name,"wb"))
+            
+            ##write an AMF input .csv file        
+            #AMF_write_name = today_date.strftime("%Y-%m-%d")+"_for_AMF.csv"
+            #print "Writing AMF input: %s" %AMF_write_name 
+            #write_for_AMF(today_BRUG,add_slash(amf_input),AMF_write_name)
+        
+    return(date_dos)             
       
 preprocessing(base_dir="/group_workspaces/jasmin/geoschem/local_users/lsurl/CL_PP/")         
