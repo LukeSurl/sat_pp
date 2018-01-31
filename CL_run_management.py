@@ -3,7 +3,7 @@
 
 import os
 import numpy as np
-from CL_satpp import add_slash,basic_menu
+from CL_satpp import add_slash,basic_menu,petc
 from datetime import datetime as dt
 from datetime import timedelta as td
 import pickle
@@ -67,15 +67,15 @@ def new_run(base_dir=None,run_name=None,sat_main=None,sat_pacific=None,geos_main
     #define dates
     change_dates(run_dir)
     
-    species = "HCHO"
+    #species = "HCHO"
     
     #choose species
-    #species=""
-    #while species not in ["HCHO","NO2"]:
-    #    species = raw_input("Enter species:\n[HCHO]\n[NO2]\n-> ").upper()
-    #species_file = open(run_dir+"species.txt")
-    #species_file.write(species)
-    #species_file.close()   
+    species=""
+    while species not in ["HCHO","NO2"]:
+        species = raw_input("Enter species:\n[HCHO]\n[NO2]\n-> ").upper()
+    species_file = open(run_dir+"species.txt","wb")
+    species_file.write(species)
+    species_file.close()   
             
     #create directories and subdirectories
     
@@ -163,7 +163,41 @@ def run_select(base_dir):
         return None
     else:
         return subdirs[int(choice)]           
+
+def read_species(run_dir):
+    """Reads which species species.txt is pointing to. Assumes HCHO if no info"""
     
+    #check species.txt exists
+    if not os.path.exists(os.path.join(run_dir,"species.txt")):
+        #if it doesn exist, assume HCHO and write the file
+        switch_species(run_dir,"HCHO")
+        return("HCHO")
+    else:
+        species_file = open(os.path.join(run_dir,"species.txt"),"rb")
+        species = species_file.read()
+        if species not in ["HCHO","NO2"]:
+            print "Error with read_species. species.txt file contents: %s.\n I do not recognise this as HCHO or NO2.\n I will assume HCHO."
+            petc()
+            species_file.close()
+            switch_species(run_dir,"HCHO") #write a good HCHO file
+            return ("HCHO")
+        else:
+            return(species)
+
+def switch_species(run_dir,new_species):
+    """Switches the defined species for this run"""
+    
+    species_file_path = os.path.join(run_dir,"species.txt")
+    #delete prior species.txt if exists
+    try:
+        os.remove(species_file_path)
+    except OSError:
+        pass
+    
+    #write a new one
+    species_file = open(species_file_path,"wb")
+    species_file.write(new_species)
+    species_file.close()   
     
 def clone_run(current_run,main_script):
     """A script to create a run by partially copying another run"""

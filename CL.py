@@ -112,7 +112,10 @@ if initial_choice == "1":
         try:
             ida_p = load_new_pickles_da(current_pickle,"_indiv.p")
         except IOError:
-            print "No ida file? Will try to proceed anyway"
+            try:
+                ida_p = load_new_pickles_da(current_pickle,".p")
+            except IOError:
+                print "No ida file? Will try to proceed anyway"
     #ida = copy.deepcopy(ida_p) #ida_p is kept static while ida gets modified.
     ida = ida_p
 
@@ -162,12 +165,14 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             ["PX","Load an 'auxillary' pickle (binned only)"],
             ["O","Create binned from individual data"],
             #["C","Assign country/state to data"],
-            ["CF","Assign country/state to data FAST"],                        
+            ["CF","Assign country/state to data FAST (India)"],
+            ["CFI","Assign country/state to data FAST (Indonesia)"],                         
             ["B","Bin additional datasets"],
             ["BI","Add binned data to individual data"],
             ["N","Associate CSV-form data"],
             ["Ni","Associate NDVI data (individual)"],
-            ["Li","Associate LAI data (individual)"],            
+            ["Li","Associate LAI data (individual)"],
+            ["LCi","Associate Land classification data (individual)"],            
             ["Fi","Associate Fire data (individual)"],
             ["FM","Associate Fire mask"],
             ["R","Reload pickle"],
@@ -322,9 +327,20 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         FIRE_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire"
         FIRE_3D = NDVI_months_v2(startdate,enddate,FIRE_dir,0.1,0.1,map_box,datatype="Fire count")
         associate_NDVI_v2(ida,FIRE_3D,0.1,0.1,map_box,startdate,datatype="Fire count")
+        
+    elif top_level_menu_choice == "LCI": #associate Land Classification ida
+        LC_dir = "/group_workspaces/cems2/nceo_generic/nceo_ed/LC"
+        LC_3D = NDVI_months_v2(startdate,enddate,LC_dir,0.1,0.1,map_box,datatype="Land classification")
+        associate_NDVI_v2(ida,LC_3D,0.1,0.1,map_box,startdate,datatype="Land classification")         
     
     elif top_level_menu_choice == "FM": #associate fire mask 
-        FIRE_file = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire_daily/fire_archive_M6_7826.csv"
+        #FIRE_file_default = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire_daily/fire_archive_M6_7826.csv"
+        FIRE_file_default = "/group_workspaces/cems2/nceo_generic/nceo_ed/fire_daily/fire_archive_M6_AU2008.csv"
+        FIRE_file_entry = raw_input("Enter file with fire locations, press enter for %s ->"%FIRE_file_default)
+        if FIRE_file_entry == "":
+            FIRE_file = FIRE_file_default
+        else:
+            FIRE_file = FIRE_file_entry
         daily_fire_filter(ida,FIRE_file,startdate,enddate,map_box,xdim,ydim)
                 
     elif top_level_menu_choice == "K": #plot geos chem data
@@ -367,7 +383,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
                 try: #will fail if ida doesn't have country/state data
                     bda = da_select_by_match(type_geo_select,geo_selection,bda)
                 except:
-                    print "Cannot process individual data, country/state not assigned"    
+                    print "Cannot process binned data, country/state not assigned"    
 
         elif type_geo_select in ["rectangle","circle"]:
             da_select_by_shape(geo_selection,ida)
@@ -388,15 +404,20 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
         "Binning data to %fx%f grid cells" %(ydim,xdim)   
         bda = create_binned_set(ida,map_box,xdim,ydim)
     
-    elif top_level_menu_choice in ["C","CF"]: #Assign country/state to newly-loaded pickles
-                
+    elif top_level_menu_choice in ["C","CF","CFI"]: #Assign country/state to newly-loaded pickles
+        
+        
+        if top_level_menu_choice == "CF":
+            country_statefile = "/home/users/lsurl/CL/country_state.csv"
+        elif top_level_menu_choice == "CFI":
+            country_statefile = "/home/users/lsurl/CL/country_state_INDO.csv"            
         #Country and state matching
         print "Matching countries and states"
         print "Countries and state assignments will be loaded from %s" %country_statefile
         print "Press enter to use this file or enter new location"
         new_option = raw_input("-->")
         if new_option != "":
-            country_statefile == new_option
+            country_statefile = new_option
         del new_option
         print "Reading %s" %country_statefile
         (csv_lat,csv_lon,csv_country,csv_state) = \
@@ -413,7 +434,11 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
             elif top_level_menu_choice == "CF":
                 (country,state) =\
                     region_matcher_fast(csv_lat,csv_lon,csv_country,csv_state,
-                                   ida.lat,ida.lon)
+                                   ida.lat,ida.lon,region="india")
+            elif top_level_menu_choice == "CFI":
+                (country,state) =\
+                    region_matcher_fast(csv_lat,csv_lon,csv_country,csv_state,
+                                   ida.lat,ida.lon,region="indonesia")
                                
             #add these to ida properly
             ida.data['country'] = d(country,'country','Country observation falls within')
@@ -687,7 +712,7 @@ while top_level_menu_choice != "Z": #loop unless ordered to quit
     elif top_level_menu_choice == "Z": #Quit
         reallyquit = ""
         while reallyquit not in ["Y","N"]:
-            reallyquit = raw_input("Are you sure you want to quit? Y/N").upper()
+            reallyquit = raw_input("Are you sure you want to quit? Y/N ->").upper()
             if reallyquit == "Y":
                 sys.exit()
             else:

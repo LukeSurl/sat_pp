@@ -184,13 +184,14 @@ class d_all:
             list_of_datasets.append(self.data[key].description)
         return(list_of_datasets)
         
-    def filter_all(self,filter_list):
+    def filter_all(self,filter_list,verbose=True):
         """For filer_list the same length as the data, keeps only datapoints where filter_list == True"""
         
         filter_as_np = np.array(filter_list)
         
-        print "Filtering"
-        print "Start: %i" %len(self.lat)
+        if verbose:
+            print "Filtering"
+            print "Start: %i" %len(self.lat)
         all_indexes = range(0,len(self.lat))
         
         #core sets
@@ -203,8 +204,8 @@ class d_all:
         for key in self.data:
             #print key    
             self.data[key].val = list(np.array(self.data[key].val)[filter_as_np])
-        
-        print "End: %i" %len(self.lat)
+        if verbose:
+            print "End: %i" %len(self.lat)
             
     def add_data(self,new_data):
         #adds a new d object, or multiple d objects
@@ -753,13 +754,15 @@ def load_new_pickles_NDVI(current_pickle,verbose=True):
     NDVI_data = (NDVI_lat,NDVI_lon,NDVI,NDVI_year,NDVI_month)
     return(NDVI_data)
     
-def load_new_pickles_da(current_pickle,suffix):    
+def load_new_pickles_da(current_pickle,suffix,verbose=True):    
     #Individual observations
-    print("Loading pickled individual observations")
+    if verbose:
+        print("Loading pickled individual observations")
     da = cPickle.load( open(current_pickle + suffix,"rb") )
-    print("Loaded the following datasets")
-    for text in da.list_all_datasets():
-        print text
+    if verbose:
+        print("Loaded the following datasets")
+        for text in da.list_all_datasets():
+            print text
     
     return(da)
 
@@ -978,10 +981,10 @@ def geo_select_rectangle_i(geo_selection,ida):
     ida.filter_all(selector)
     return(ida)    
 
-def da_select_by_shape(select_shape,da):
+def da_select_by_shape(select_shape,da,verbose=True):
     """Reduces data_all objects down to only those points within designated bounds"""
     selector = select_shape.within(da.lat,da.lon)
-    da.filter_all(selector)
+    da.filter_all(selector,verbose=verbose)
     #return(da)
     
 def geo_select_circle(lat,lon,geo_selection,*datasets):
@@ -1094,9 +1097,12 @@ def time_cycle(ida,data_key,stat_choice,
                      title=plot_title,
                      x_label=x_label,y_label=y_label,alpha=1.0)
                      
-        print time_collection
+        #print time_collection
         print stat_collection
         _ = raw_input("Press enter to continue")
+    else:
+        #print time_collection
+        print stat_collection        
     
     return(stat_collection,time_collection,time_bounds_collection)
 
@@ -1349,7 +1355,7 @@ def region_matcher(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
     else:
         return(country_out)
         
-def region_matcher_fast(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
+def region_matcher_fast(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True,region="india"):
 
     """A fast version of region_matcher that only works for country_state.csv"""
     
@@ -1360,14 +1366,24 @@ def region_matcher_fast(cs_lat,cs_lon,cs_country,cs_state,lat,lon,states=True):
     
     #get i and j indexes
     
-    j = np.around(np.divide((lat-2.),0.25))
-    j = np.maximum(j,np.zeros_like(j))
-    j = np.minimum(j,np.zeros_like(j)+144)
-    
-    i = np.around(np.divide((lon-65.),0.3125))
-    i = np.maximum(i,np.zeros_like(i))
-    i = np.minimum(i,np.zeros_like(i)+112)
-    ind = np.add(113*j,i)
+    if region=="india":
+        j = np.around(np.divide((lat-2.),0.25))
+        j = np.maximum(j,np.zeros_like(j))
+        j = np.minimum(j,np.zeros_like(j)+144)
+        
+        i = np.around(np.divide((lon-65.),0.3125))
+        i = np.maximum(i,np.zeros_like(i))
+        i = np.minimum(i,np.zeros_like(i)+112)
+        ind = np.add(113*j,i)
+    elif region=="indonesia":
+        j = np.around(np.divide((lat-(-12.)),0.25))
+        j = np.maximum(j,np.zeros_like(j))
+        j = np.minimum(j,np.zeros_like(j)+77)
+        
+        i = np.around(np.divide((lon-93.9375),0.3125))
+        i = np.maximum(i,np.zeros_like(i))
+        i = np.minimum(i,np.zeros_like(i)+154)
+        ind = np.add(155*j,i)    
     
     print len(j)
     print len(ind)
@@ -2448,9 +2464,12 @@ def second_stage(gradient,err,intercept,ida):
    
     return(ida)        
     
-def daily_fire_filter(ida,fire_file,start_date,end_date,map_box,xdim,ydim):
+def daily_fire_filter(ida,fire_file,start_date,end_date,map_box,xdim,ydim,dos_skip=True):
     
-    do_a_save = raw_input("If you want to automatically save the output from this, enter the full filepath here. Otherwise, enter for normal operations-->")
+    if dos_skip:
+        do_a_save=""
+    else:
+        do_a_save = raw_input("If you want to automatically save the output from this, enter the full filepath here. Otherwise, enter for normal operations-->")
     
     #filter_range = float(raw_input("Minimum acceptable distance from fire in degrees?-->"))
     #filter_t_range = float(raw_input("Minimum acceptable time from fire in days?-->"))
@@ -2680,7 +2699,8 @@ def simple_maths(xda):
                    ["3","A * B"],
                    ["4","A / B"],
                    ["5","A + number"],
-                   ["6","A * number"]]
+                   ["6","A * number"],
+                   ["7","Z-score of A"]]
     sm_menu_choice= basic_menu(sm_menu_title,
                                 sm_menu_text,
                                 quit_option=True)
@@ -2709,8 +2729,10 @@ def simple_maths(xda):
         d2_unit = xda.data[d2_key].unit
     elif sm_menu_choice == ["5"]:
         flat_num = input("Enter number to ADD to each datapoint")
-    else:
+    elif sm_menu_choice == ["6"]:
         flat_num = input("Enter number to MULTIPLY each datapoint by")
+    elif sm_menu_choice == ["7"]:
+        pass #no further info needed 
         
     #Perform operation
     if sm_menu_choice == "1":
@@ -2731,6 +2753,9 @@ def simple_maths(xda):
     elif sm_menu_choice == "6":
         new_var = np.multiply(d1_var,flat_num)
         new_var_sname = d1_key+"_TIMES_"+str(flat_num)
+    elif sm_menu_choice == "7":
+        new_var = scistats.zscore(d1_var)
+        new_var_sname = d1_key+"_z-score"
     
     print "Operation successful"
     
@@ -2741,6 +2766,8 @@ def simple_maths(xda):
     
     if sm_menu_choice in ["1","2","6"]:
         new_var_unit = d1_unit
+    elif sm_menu_choice == "7": #z-scores are dimensionless
+        new_var_unit = ""
     else:
         new_var_unit = raw_input("Type units for this new field --> ")
     
@@ -2821,3 +2848,7 @@ def bda_add_frombda(bda_old,bda_new):
            
     print "%s added" %d_key+"_aux"   
     return(bda_old)
+    
+def petc():
+    """Press enter to continue"""
+    _ = raw_input("Press enter to continue--> ")

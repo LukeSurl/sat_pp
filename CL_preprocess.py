@@ -12,9 +12,10 @@ import pickle
 import cPickle
 import numpy as np
 import copy
+import sys
 
 from CL_satpp import box,d,d_all,add_slash,clearscreen,basic_menu,geo_select_rectangle_i,enter_date
-from CL_run_management import run_select,new_run,change_dates
+from CL_run_management import run_select,new_run,change_dates,read_species,switch_species
 from pacific_offline import pacific_ol
 from grain import Grain
 #from CL_omi_matchup import match_BRUG
@@ -55,6 +56,7 @@ def preprocessing(base_dir=None,run_name=None):
             print "[R] Select a different run in this directory"
         print "[N] Set up new run" 
         if base_dir != None and run_name != None: #only see these options if a run has been selected.
+            print "[S] Switch species"
             print "[1] Download new 'main' satellite data"
             print "[2] Download new 'pacific' satellite data"
             print "[3] Extract data from main satellite files and generate input for AMF calculator"
@@ -63,6 +65,7 @@ def preprocessing(base_dir=None,run_name=None):
             print "[3c] Extract data from BRUG GOME satellite files and generate input for AMF calculator"
             print "[4] Run AMF calculator"
             print "[4b] Prepare OMI slant-column only file"
+            print "[4by] Prepare OMI slant-column only file, one for each year"
             print "[4c] Prepare GOME slant-column only file"            
             print "[P] Calculate pacific correction"
             print "[5] Apply pacific correction to slant columns"
@@ -72,12 +75,18 @@ def preprocessing(base_dir=None,run_name=None):
             print "[A] Do steps 5-7 with 2014 as overwrite year"
             print "[X] Change date range"
         print "[M] Merge some pickles"
-        print "[Z] Go to previous menu"
+        print "[Z] Quit"
         option = raw_input("-->").upper()
         
-        if option == "Z": #quit
-            break
-        
+        if option == "Z": #Quit
+            reallyquit = ""
+            while reallyquit not in ["Y","N"]:
+                reallyquit = raw_input("Are you sure you want to quit? Y/N--> ").upper()
+                if reallyquit == "Y":
+                    sys.exit()
+                else:
+                    option = ""
+               
         if option =="D": #change top-level directory
             base_dir = raw_input("Enter new top-level directory -->")
             if not os.path.isdir(base_dir):
@@ -95,6 +104,7 @@ def preprocessing(base_dir=None,run_name=None):
                 _ = raw_input("Press enter to continue-->")
                 continue
             run_name = run_select(base_dir)
+            species = read_species(os.path.join(base_dir,run_name))
             continue
                 
         if option == "N":
@@ -122,6 +132,14 @@ def preprocessing(base_dir=None,run_name=None):
         p4          = add_slash(os.path.join(base_dir,run_name,"p4/"))
         pp          = add_slash(os.path.join(base_dir,run_name,"pp/"))
         date_list   = pickle.load(open(os.path.join(base_dir,run_name,"date_list.p"),"rb"))
+        
+        if option == "S":
+            if species == "HCHO":
+                species = "NO2"
+            else:
+                species = "HCHO"
+            switch_species(os.path.join(base_dir,run_name),species)
+            
                     
         if option == "1":
             download_sat(base_dir,run_name,main_pacific="main",species=species)
@@ -135,7 +153,10 @@ def preprocessing(base_dir=None,run_name=None):
             date_dos = assemble_sat_data(sat_main,date_list,p1,amf_input,species=species)
             
             print "Enter AMF calculator directory"
-            amf_run_dir = os.path.join(base_dir,"amf581g/")
+            if species == "NO2":
+                amf_run_dir = os.path.join(base_dir,"amf581no2/")
+            else:
+                amf_run_dir = os.path.join(base_dir,"amf581g/")
             print "Press enter to use %s" %amf_run_dir          
             amf_run_dir_in = raw_input("-->")
             if amf_run_dir_in !=  "":
@@ -199,7 +220,11 @@ def preprocessing(base_dir=None,run_name=None):
             continue
         
         if option == "4B":
-            prep_satellite_slants(date_list,p1,p4)
+            prep_satellite_slants(date_list,p1,p4,species=species)
+        
+        if option == "4BY":
+            print "Prepare OMI slant-column only file, one for each year"
+            prep_satellite_slants(date_list,p1,p4,yearly=True,species=species)
             
         if option == "4C":
             prep_GOME_slants(date_list,p1,p4)            
@@ -302,6 +327,7 @@ def preprocessing(base_dir=None,run_name=None):
         if option == "X":
             run_dir = add_slash(os.path.join(base_dir,run_name))
             change_dates(run_dir)
+           
 
 def download_sat(base_dir,run_name,main_pacific,species="HCHO"):
     clearscreen()
@@ -359,7 +385,7 @@ def OMI_from_HDF(HDF_file,species="HCHO"):
                 time.append(dt(year,month,day,hour,minute,second))
     else: #NO2 this file only has TAI-93 time
         #time in units of seconds since 1993-01-01 00:00:00
-        for scan in range(0,n_scanes):
+        for scan in range(0,n_scans):
             time_utc = TAI93_to_UTC(gf['Time'][scan])
             
             #round to nearest second (microsecond info will be discarded)
@@ -494,7 +520,7 @@ def OMI_from_HDF(HDF_file,species="HCHO"):
                                     list(np.array(df['VcdQualityFlags']).flatten()),
                                     "VCD quality flag")
         Xtrack_flag = d(
-                        list(np.array(gf['XtrackQualityFlags']).flatten()),
+                        list(np.array(df['XTrackQualityFlags']).flatten()),
                         "Xtrack quality flag")        
     
     
@@ -614,6 +640,10 @@ def check_HDFs_in_directory(directory,HDF_type="OMHCHO"):
         if HDF_type=="OMHCHO":
             granule_date = f_HDF['HDFEOS']['SWATHS']['OMI Total Column Amount HCHO']['Geolocation Fields']['TimeUTC'][0]
             this_date = dt(granule_date[0],granule_date[1],granule_date[2],0,0,0)
+        elif HDF_type=="OMNO2":
+            granule_date = TAI93_to_UTC(f_HDF['HDFEOS']['SWATHS']['ColumnAmountNO2']['Geolocation Fields']['Time'][0])
+            this_date = dt(granule_date.year,granule_date.month,granule_date.day,0,0,0)
+            
         elif HDF_type=="BRUG":
             gf = f_HDF['HDFEOS']['SWATHS']['Geolocation Fields']
             this_date = dt(int(gf['Year'][0]),int(gf['Month'][0]),int(gf['Day'][0]),0,0,0)
@@ -668,10 +698,20 @@ def assemble_sat_data(sat_directory,date_list,OMI_save,AMF_txt_save,species="HCH
         #print this_day_HDF_files
         these_OMIs = []
         for H in this_day_HDF_files:
-            these_OMIs.append(OMI_from_HDF(h5py.File(H),species=species))
+            try:
+                these_OMIs.append(OMI_from_HDF(h5py.File(H),species=species))
+            except KeyError:
+                print "KeyError accessing %s | File skipped" %H
+                pass
         #print these_OMIs
-        this_day_OMI = merge_OMI(these_OMIs,do_daylist=False)
-        del these_OMIs
+        try:
+            this_day_OMI = merge_OMI(these_OMIs,do_daylist=False)
+            del these_OMIs
+        except UnboundLocalError: #if no data survived!
+            have_data.append([date_clock,False])
+            date_clock += td(days=1)
+            continue
+            
         
         #assign day
         this_day_OMI.meta["day"] = date_clock
@@ -902,84 +942,108 @@ def read_in_AMF(AMF_dir,pickle_dir_2,
     
     return(OMI_all)
 
-def prep_satellite_slants(date_list,p1,save_dir):
+def prep_satellite_slants(date_list,p1,save_dir,yearly=False,species="HCHO"):
 
-    suffix = raw_input("suffix for filename-->")
-    #loop through days
-    daily_new_OMIs = []
-    for date_clock in date_list :
-        print "Processing %s..." %date_clock.strftime("%Y-%m-%d")
-        #open this day's pickle
-        p1_path = p1 +"/" + date_clock.strftime("%Y-%m-%d")+"_OMI.p"
-        try:
-            OMI_in = pickle.load(open(p1_path,"rb"))
-        except IOError:
-            #file doesn't exist
-            print "File here does not exist!"
-            continue #go to next date
-        
-        daily_new_OMIs.append(OMI_in)
-        del OMI_in
-        
-    print "Merging into one file..."
-    OMI_all  = merge_OMI(daily_new_OMIs)
+    if yearly:
+        suffix_base = raw_input("suffix for filename, _YYYY will be further suffixed-->")
+    else:
+        suffix = raw_input("suffix for filename-->")
     
-    print "Filtering..."
-    num_pre_filter = len(OMI_all.lat)
-    print "Data points prior to filter: %i" %num_pre_filter
-    filter_i = []
-
-    dcf = raw_input("Do cloud filtering Y/N?").upper()
-
-    for i in range(0,num_pre_filter):
+    if yearly:
+        years = sorted(list(set([date_list[i].year for i in range(len(date_list))])))
+    else:
+        years = [0] #dummy
     
-        if OMI_all.data["main data quality flag"].val[i] != 0 :
-            filter_i.append(False)
-            continue
-        if OMI_all.data["Xtrack quality flag"   ].val[i] != 0 :
-            filter_i.append(False)
-            continue
-        if OMI_all.data["SZA"                   ].val[i] > 70.:
-            filter_i.append(False)
-            continue
-        if dcf == "Y":
-            if OMI_all.data["cloud fraction"        ].val[i] > 0.4 :
+    for year in years:
+    
+        #loop through days
+        daily_new_OMIs = []
+        for date_clock in date_list :
+            if yearly:
+                if date_clock.year != year:
+                    continue
+                    
+            print "Processing %s..." %date_clock.strftime("%Y-%m-%d")
+            #open this day's pickle
+            p1_path = p1 +"/" + date_clock.strftime("%Y-%m-%d")+"_OMI.p"
+            try:
+                OMI_in = pickle.load(open(p1_path,"rb"))
+            except IOError:
+                #file doesn't exist
+                print "File here does not exist!"
+                continue #go to next date
+            
+            daily_new_OMIs.append(OMI_in)
+            del OMI_in
+            
+        print "Merging into one file..."
+        OMI_all  = merge_OMI(daily_new_OMIs)
+        
+        print "Filtering..."
+        num_pre_filter = len(OMI_all.lat)
+        print "Data points prior to filter: %i" %num_pre_filter
+        filter_i = []
+        if yearly:
+            dcf = True
+        else:
+            dcf = raw_input("Do cloud filtering Y/N?").upper()
+
+        for i in range(0,num_pre_filter):
+            if species == "HCHO":
+                if OMI_all.data["main data quality flag"].val[i] != 0 :
+                    filter_i.append(False)
+                    continue
+            elif species == "NO2":
+                if OMI_all.data["VCD quality flag"].val[i] % 2 == 1 :#odd values are bad
+                    filter_i.append(False)
+                    continue            
+            if OMI_all.data["Xtrack quality flag"   ].val[i] != 0 :
                 filter_i.append(False)
                 continue
-        #if np.isnan(ida.data["sat_VC"       ].val[i]):
-        #    #AMF or pacific correction failed here
-        #    filter_i.append(False)
-        #    continue
-        if abs(OMI_all.data["DSC"].val[i]) > abs(OMI_all.data["SC"].val[i]*3):
-            filter_i.append(False)
-            continue
-        if abs(OMI_all.data["SC"].val[i]) > 1.5e17:
-            filter_i.append(False)
-            continue
-        #if we get this far, this data point has passed
-        filter_i.append(True)
-    #filter this data
-    OMI_all.filter_all(filter_i)
+            if OMI_all.data["SZA"                   ].val[i] > 70.:
+                filter_i.append(False)
+                continue
+            if dcf == "Y":
+                if OMI_all.data["cloud fraction"        ].val[i] > 0.4 :
+                    filter_i.append(False)
+                    continue
+            #if np.isnan(ida.data["sat_VC"       ].val[i]):
+            #    #AMF or pacific correction failed here
+            #    filter_i.append(False)
+            #    continue
+            if abs(OMI_all.data["DSC"].val[i]) > abs(OMI_all.data["SC"].val[i]*3):
+                filter_i.append(False)
+                continue
+            if abs(OMI_all.data["SC"].val[i]) > 1.5e17:
+                filter_i.append(False)
+                continue
+            #if we get this far, this data point has passed
+            filter_i.append(True)
+        #filter this data
+        OMI_all.filter_all(filter_i)
 
-    #add meta information about filtering
-    OMI_all.meta["Filtering criteria"] = \
-                "row != 0 or 59\n"+\
-                "main data quaility flag == 0\n"+\
-                "Xtrack quaility flag == 0\n"+\
-                "Solar zenity angle <= 70.\n"+\
-                "Cloud fraction <= 0.4\n"+\
-                "DSC < abs(SC*3)\n"+\
-                "SC < 1.5e17"
-    OMI_all.meta["Filtering stats"] = \
-        {"Total datapoints":num_pre_filter,
-         "Retained datapoints":len(OMI_all.lat),
-         "Removed datapoints":num_pre_filter-len(OMI_all.lat)}
-    
-    print OMI_all.meta["Filtering stats"]     
-    
-    save_path = join(save_dir,"slants_filtered_%s.p"%suffix)
-    print "Saving as %s" %save_path
-    cPickle.dump(OMI_all,open(join(save_path),"wb"))
+        #add meta information about filtering
+        OMI_all.meta["Filtering criteria"] = \
+                    "row != 0 or 59\n"+\
+                    "main data quaility flag == 0\n"+\
+                    "Xtrack quaility flag == 0\n"+\
+                    "Solar zenity angle <= 70.\n"+\
+                    "Cloud fraction <= 0.4\n"+\
+                    "DSC < abs(SC*3)\n"+\
+                    "SC < 1.5e17"
+        OMI_all.meta["Filtering stats"] = \
+            {"Total datapoints":num_pre_filter,
+             "Retained datapoints":len(OMI_all.lat),
+             "Removed datapoints":num_pre_filter-len(OMI_all.lat)}
+        
+        print OMI_all.meta["Filtering stats"]     
+        
+        if yearly:
+            suffix = suffix_base + "_" + str(year)
+        
+        save_path = join(save_dir,"slants_filtered_%s.p"%suffix)
+        print "Saving as %s" %save_path
+        cPickle.dump(OMI_all,open(join(save_path),"wb"))
 
 def prep_GOME_slants(date_list,p1,save_dir):
 

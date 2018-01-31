@@ -244,20 +244,29 @@ def oversample(ida,colmap):
 
         #this_os_data.set_meta('Spatial extent'
 
-        plot_grid_from_list(lat_fine,lon_fine,var_fine,
-                            fine_dim,fine_dim,
-                            view_box,
-                            title="",vmin=0.2,vmax=1.2,
-                            lab="10$^{15}$ molec/cm$^2$",
-                            save=True,save_filename="/home/users/lsurl/CL/%fN-%fN--%fE-%fE--oversample_newcbar.png"%(south_view,north_view,west_view,east_view),
-                            colmap=colmap, do_plot=True,labels=True)
+        map_preplot_menu_choice = ""
+        while map_preplot_menu_choice.upper() != "Z":
+            (map_preplot_menu_choice,title,vmin,vmax,unit,save_filename,labels) =\
+                                map_preplot_menu("",
+                                vmin=np.nanmin(var_fine),
+                                vmax=np.nanmax(var_fine),
+                                unit="10$^{15}$ molec/cm$^2$",do_labels=True)
+                                
+            if map_preplot_menu_choice.upper() != "Z":
+                plot_grid_from_list(lat_fine,lon_fine,var_fine,
+                                    fine_dim,fine_dim,
+                                    view_box,
+                                    title=title,vmin=vmin,vmax=vmax,
+                                    lab=unit,
+                                    save=True,save_filename="/home/users/lsurl/CL/%fN-%fN--%fE-%fE--oversample_newcbar.png"%(south_view,north_view,west_view,east_view),
+                                    colmap=colmap, do_plot=True,labels=True)
 
-        #plot_grid_from_list(lat_fine,lon_fine,var_fine_count,
-        #                    fine_dim,fine_dim,
-        #                    view_box,
-        #                    title="Oversampled plot",vmin=0,vmax=np.nanmax(var_fine_count),
-        #                    lab="data count at location",
-        #                    save=False,save_filename="nofilenamespecified")
+            #plot_grid_from_list(lat_fine,lon_fine,var_fine_count,
+            #                    fine_dim,fine_dim,
+            #                    view_box,
+            #                    title="Oversampled plot",vmin=0,vmax=np.nanmax(var_fine_count),
+            #                    lab="data count at location",
+            #                    save=False,save_filename="nofilenamespecified")
         return(this_os_data)
 
 

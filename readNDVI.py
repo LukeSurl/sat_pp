@@ -257,18 +257,21 @@ def CSV_months(startdate,enddate,NDVIfolder,xres,yres,compass,CSV_name):
         
     return(lats_all,lons_all,NDVI_all,year_all,month_all)
         
-def readNDVI_v2(NDVIfolder,year,month,xres,yres,compass,datatype="NDVI"):
+def readNDVI_v2(NDVIfolder,year,month,xres,yres,compass,datatype="NDVI",verbose=True):
     if datatype == "NDVI":
         filename = '%s/MOD13A2_M_NDVI_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
     elif datatype == "Fire count":
         filename = '%s/MOD14A1_M_FIRE_%i-%02d-01_rgb_3600x1800.CSV' % (NDVIfolder,year,month)
     elif datatype == "LAI":
         filename = '%s/MOD15A2_M_LAI_%i-%02d-01_rgb_3600x1800.CSV'  % (NDVIfolder,year,month)
+    elif datatype == "Land classification":
+        filename = '%s/2011LANDCOVER.xyz'  % (NDVIfolder)
     f = open(filename,"rb")
     data = list(csv.reader(f, delimiter=','))
     f.close()
-    print "Full Shape.."
-    print np.array(data).shape
+    if verbose:
+        print "Full Shape.."
+        print np.array(data).shape
     
     north = compass.n
     south = compass.s
@@ -285,22 +288,22 @@ def readNDVI_v2(NDVIfolder,year,month,xres,yres,compass,datatype="NDVI"):
     south_j = int((90 - south) / yres)+1
     east_i  = int((180 + east) / xres)
     west_i  = int((180 + west) / xres)+1
-    
-    print "north_j = %i" %north_j
-    print "south_j = %i" %south_j
-    print "east_i = %i" %east_i
-    print "west_i = %i" %west_i
+    if verbose:
+        print "north_j = %i" %north_j
+        print "south_j = %i" %south_j
+        print "east_i = %i" %east_i
+        print "west_i = %i" %west_i
                 
     
     #slice
     data = [row[west_i:east_i] for row in data[north_j:south_j]]
-    
-    print "Cut Shape.."
-    print np.array(data).shape
+    if verbose:
+        print "Cut Shape.."
+        print np.array(data).shape
     
     return(data)
 
-def NDVI_months_v2(startdate,enddate,NDVIfolder,xres,yres,compass,datatype="NDVI"):
+def NDVI_months_v2(startdate,enddate,NDVIfolder,xres,yres,compass,datatype="NDVI",verbose=True):
 
     dateclock = startdate
     m = 0
@@ -308,12 +311,16 @@ def NDVI_months_v2(startdate,enddate,NDVIfolder,xres,yres,compass,datatype="NDVI
     while dateclock < enddate:
         year  = dateclock.year
         month = dateclock.month
-        print "loading %s data for %i-%02d" %(datatype,year,month)
-        NDVI_3D.append(readNDVI_v2(NDVIfolder,year,month,xres,yres,compass,datatype=datatype))
+        if verbose:
+            if datatype != "Land classification":
+                print "loading %s data for %i-%02d" %(datatype,year,month)
+            else:
+                print "loading..."
+        NDVI_3D.append(readNDVI_v2(NDVIfolder,year,month,xres,yres,compass,datatype=datatype,verbose=False))
         dateclock = add_months_dt(dateclock,1)    
     return(NDVI_3D)
     
-def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate,datatype="NDVI"):
+def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate,datatype="NDVI",verbose=True):
 
     north=compass.n
     south=compass.s
@@ -325,10 +332,11 @@ def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate,datatype="NDVI"):
     #east  = 179.95
     #west  = -179.95
     
-    print "Associating with individual observations"
-    
-    print "3D Shape.."
-    print np.array(NDVI_3D).shape  
+    if verbose:
+        print "Associating with individual observations"
+        
+        print "3D Shape.."
+        print np.array(NDVI_3D).shape  
     
     NDVI = []
     
@@ -348,18 +356,23 @@ def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate,datatype="NDVI"):
         if datatype != "Fire screen":
         
             if k % 1000 == 0:
-                print "%i of %i" %(k,len(ida.lat))
-                print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])
-                print "j  =%i, i  =%i" %(j,i)
-                print "%s = %g" %(datatype,float(NDVI_3D[m][j][i]))
+                if verbose:
+                    print "%i of %i" %(k,len(ida.lat))
+
             try:
                 NDVI.append(float(NDVI_3D[m][j][i]))
+                if verbose:
+                    print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])
+                    print "j  =%i, i  =%i" %(j,i)
+                    print "%s = %g" %(datatype,float(NDVI_3D[m][j][i]))
             except IndexError:
-                print "Out of range, assigning zero"
-                print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])
-                print "m=%i, j=%i, i=%i" %(m,j,i)            
+                if verbose:
+                    print "Out of range, assigning zero"
+                    print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])
+                    print "m=%i, j=%i, i=%i" %(m,j,i)
+                    print "================"            
                 NDVI.append(0.)
-                print "================"
+                
         
         else:
             j_low = j-int(filter_range/yres)
@@ -380,11 +393,13 @@ def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate,datatype="NDVI"):
             try:
                 NDVI.append(float(np.max(subset)))
             except IndexError:
-                print "Out of range, assigning 99999"
-                print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])
-                print "m=%i, j=%i, i=%i" %(m,j,i)            
+                if verbose:
+                    print "Out of range, assigning 99999"
+                    print "lat=%g, lon=%g" %(ida.lat[k],ida.lon[k])
+                    print "m=%i, j=%i, i=%i" %(m,j,i)
+                    print "================"            
                 NDVI.append(99999.)
-                print "================"
+
             
     
     #seas from 99999 -> 0
@@ -422,6 +437,10 @@ def associate_NDVI_v2(ida,NDVI_3D,xres,yres,compass,startdate,datatype="NDVI"):
                 NDVI_sea0.append( 0. )                
             else: #anything else
                 NDVI_sea0.append( 1. ) #also, make sure float    
-        NDVI_d = d(NDVI_sea0,"Fire screen",description="Fire in month in %f degree range?"%filter_range)    
+        NDVI_d = d(NDVI_sea0,"Fire screen",description="Fire in month in %f degree range?"%filter_range)
+    elif datatype == "Land classification":
+        for i in range(0,len(NDVI)):
+            NDVI_sea0.append( float(NDVI[i]) ) #make sure float    
+        NDVI_d = d(NDVI_sea0,"Land classification",description="Land classification")           
     
     ida.add_data(NDVI_d)
